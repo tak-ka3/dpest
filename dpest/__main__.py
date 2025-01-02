@@ -14,7 +14,7 @@ prng = np.random.default_rng(seed=42)
 # TODO: 以下のパラメタの調整
 LAP_UPPER = 50
 LAP_LOWER = -50
-LAP_VAL_NUM = 1000
+LAP_VAL_NUM = 10
 INF = 10000
 SAMPLING_NUM = 1000000
 # サンプリングによって出力の確率を求める際の、確率変数の値を区切るグリッドの数
@@ -370,7 +370,6 @@ class ToArray(Pmf):
         for val, pdf in zip(product(*val_arr_2d), product(*pdf_arr_2d)):
             val_to_pdf[val] = np.prod(pdf)
         return OPmf(val_to_pdf)
-
     
     def func(self, args):
         """
@@ -445,7 +444,8 @@ if __name__ == "__main__":
     # Arr = Array(5)
     Lap = Laplace(th, 1/eps)
     # q1, q2, q3, q4, q5 = raw_extract(Array(5))
-    Y = ToArray(Comp(Lap1, Lap), Comp(Lap2, Lap), Comp(Lap3, Lap), Comp(Lap4, Lap), Comp(Lap5, Lap))
+    # Y = ToArray(Comp(Lap1, Lap), Comp(Lap2, Lap), Comp(Lap3, Lap), Comp(Lap4, Lap), Comp(Lap5, Lap))
+    Y = ToArray(Lap1, Lap2, Lap3, Lap4, Lap5)
     # このアルゴリズムで推定されたεの値が出力される
 
 
