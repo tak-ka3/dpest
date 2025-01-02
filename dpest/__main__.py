@@ -1,11 +1,13 @@
 # 型ヒントを遅延評価できるようになる
 from __future__ import annotations
 import numpy as np
+import matplotlib.pyplot as plt
 import copy
 from scipy import interpolate
 from scipy.integrate import quad
+from itertools import product
 from dpest.input_generator import input_generator
-from dpest.search import search_scalar_all
+from dpest.search import search_scalar_all, search_hist
 from utils.pr_calc import nonuniform_convolution
 
 prng = np.random.default_rng(seed=42)
@@ -14,59 +16,69 @@ LAP_UPPER = 50
 LAP_LOWER = -50
 LAP_VAL_NUM = 1000
 INF = 10000
+SAMPLING_NUM = 1000000
+# サンプリングによって出力の確率を求める際の、確率変数の値を区切るグリッドの数
+GRID_NUM = 2
 
 """
 確率質量関数
 """
 class Pmf:
-    def __init__(self, val_to_prob=None):
+    def __init__(self, *args, val_to_prob=None):
         self.val_to_prob = val_to_prob or {}
-        self.child = []
+        self.child = list(args)
         self.name = "Pmf"
+        all_vars = set()
         self.is_args_depend = False # 引数間に依存関係があるか
-        self.depend_vars = [] # この確率変数が依存している確率変数で、LaplaceかPmfのような元の確率変数しか含まない
+        for child in self.child:
+            depend_vars_set = set(child.depend_vars)
+            if all_vars & depend_vars_set:
+                self.is_args_depend = True
+            all_vars.update(depend_vars_set)
+        self.depend_vars = list(all_vars)
+        # self.is_args_depend = False # 引数間に依存関係があるか
+        # self.depend_vars = [] # この確率変数が依存している確率変数で、LaplaceかPmfのような元の確率変数しか含まない
         self.is_sampling = False
 
-    def sampling(self):
-        """
-        プログラムを実行してサンプリングできるようにしておく
-        """
-        pass
-
-    def _insert_input_val(self, input_val_list: list):
-        """
-        サンプリングで得られた値を代入する
-        """
-        pass
-
-    def _resolve_dependency(self, input_val_list: list):
+    def _resolve_dependency(self, input_comb: tuple):
         """
         あとは解析的に計算することが可能な計算グラフが出来上がる
         TODO: 一つ上の階層の関数がいらないかもしれない
         """
-        def _resolve_dependency_rec(var, input_val_ind):
+        Y1 = copy.deepcopy(self)
+        Y2 = copy.deepcopy(self)
+        input_val_list1 = input_comb[0]
+        input_val_list2 = input_comb[1]
+        def _resolve_dependency_rec(var1: Pmf, var2: Pmf): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
             # TODO: Pmfクラスも対応できるように、var.child==[]という条件分岐にする
-            if isinstance(var, Laplace):
-                assert len(var.child) == 1
-                if isinstance(var.child[0], int | float):
-                    return var
-                elif isinstance(var.child[0], ArrayItem):
-                    input_val_ind += 1
-                    var.child[0] = input_val_list[input_val_ind-1]
-                    vals = np.linspace(var.lower, var.upper, var.num)
-                    probs = np.exp(-np.abs(vals - var.child[0]) / var.b) / (2 * var.b)
-                    var.val_to_prob = dict(zip(vals, probs))
-                    return var
-            if var.is_args_depend:
+            if isinstance(var1, Laplace):
+                assert len(var1.child) == 1
+                if isinstance(var1.child[0], int | float):
+                    return var1, var2
+                elif isinstance(var1.child[0], ArrayItem):
+                    var1.child[0] = input_val_list1[var1.child[0].ind]
+                    var2.child[0] = input_val_list2[var2.child[0].ind]
+                    vals = np.linspace(var1.lower, var1.upper, var1.num)
+                    probs1 = np.exp(-np.abs(vals - var1.child[0]) / var1.b) / (2 * var1.b)
+                    probs2 = np.exp(-np.abs(vals - var2.child[0]) / var2.b) / (2 * var2.b)
+                    var1.val_to_prob = dict(zip(vals, probs1))
+                    var2.val_to_prob = dict(zip(vals, probs2))
+                    return var1, var2
+            if var1.is_args_depend:
                 # ここでサンプリングにより確率密度を計算する
-                return Pmf()
-            updated_child = [_resolve_dependency_rec(child, input_val_ind) for child in var.child]
-            var.child = updated_child
-            return var
+                output_var1, output_var2 = calc_pdf_by_sampling(var1, var2, input_comb)
+                return output_var1, output_var2
+            updated_child1, updated_child2 = [], []
+            for child1, child2 in zip(var1.child, var2.child):
+                c1, c2 = _resolve_dependency_rec(child1, child2)
+                updated_child1.append(c1)
+                updated_child2.append(c2)
+            var1.child = updated_child1
+            var2.child = updated_child2
+            return var1, var2
 
-        input_val_ind = 0
-        calc_graph = _resolve_dependency_rec(self, input_val_ind)
-        return calc_graph
+        calc_graph1, calc_graph2 = _resolve_dependency_rec(Y1, Y2)
+        return calc_graph1, calc_graph2
 
     def _calc_pdf(self, calc_graph):
         """
@@ -75,7 +87,7 @@ class Pmf:
             var: 最終的に得られた確率変数。確率密度もプロパティに含む。
         """
         def _calc_pdf_rec(var):
-            if isinstance(var, Laplace | OPmf):
+            if isinstance(var, Laplace | OPmf | HistPmf):
                 return var
             output_var = var.calc_pdf([_calc_pdf_rec(child) for child in var.child])
             return output_var
@@ -90,30 +102,77 @@ class Pmf:
         依存関係は最も子供から調べる。子が依存する確率変数は親も依存するという関係
         """
         # ArrayItemに代入する
+        # TODO: infか1かの隣接性はプログラマが指定できるようにする
         input_list = input_generator("inf", 5)
         for input_set in input_list:
-            Y1 = copy.deepcopy(self)
-            calc_graph1 = Y1._resolve_dependency(input_set[0])
+            calc_graph1, calc_graph2 = self._resolve_dependency(input_set)
             Y1 = self._calc_pdf(calc_graph1)
-            val1, pdf1 = list(Y1.val_to_prob.keys()), list(Y1.val_to_prob.values())
-
-            Y2 = copy.deepcopy(self)
-            calc_graph2 = Y2._resolve_dependency(input_set[1])
             Y2 = self._calc_pdf(calc_graph2)
-            val2, pdf2 = list(Y2.val_to_prob.keys()), list(Y2.val_to_prob.values())
 
-            if val1 != val2:
-                raise ValueError("Invalid value")
-            eps = search_scalar_all(np.array(val1), np.array(pdf1), np.array(pdf2))
+            if isinstance(Y1, HistPmf):
+                eps = search_hist(Y1.hist, Y2.hist)
+            else:
+                val1, pdf1 = list(Y1.val_to_prob.keys()), list(Y1.val_to_prob.values())
+                val2, pdf2 = list(Y2.val_to_prob.keys()), list(Y2.val_to_prob.values())
+                if val1 != val2:
+                    raise ValueError("Invalid value")
+                eps = search_scalar_all(np.array(val1), np.array(pdf1), np.array(pdf2))
+
             print("eps=", eps)
-
         print("eps_est")
-        pass
+
+def calc_pdf_by_sampling(var1, var2, input_comb):
+    """
+    サンプリングにより確率密度を計算し、OPmfに格納して返す
+    """
+    input_val_list1 = input_comb[0]
+    input_val_list2 = input_comb[1]
+    def _calc_pdf_by_sampling_rec(var1: Pmf, var2: Pmf): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
+        if isinstance(var1, Laplace):
+            if isinstance(var1.child[0], int | float):
+                return prng.laplace(var1.child[0], var1.b), prng.laplace(var2.child[0], var2.b)
+            elif isinstance(var1.child[0], ArrayItem):
+                var1.child[0] = input_val_list1[var1.child[0].ind]
+                var2.child[0] = input_val_list2[var2.child[0].ind]
+                return prng.laplace(var1.child[0], var1.b), prng.laplace(var2.child[0], var2.b)
+            else:
+                raise ValueError("Invalid value")
+        updated_child1, updated_child2 = [], []
+        for child1, child2 in zip(var1.child, var2.child):
+            c1, c2 = _calc_pdf_by_sampling_rec(child1, child2)
+            updated_child1.append(c1)
+            updated_child2.append(c2)
+        return var1.func(updated_child1), var2.func(updated_child2)
+
+    # 最小値と最大値を知るためのサンプリング
+    # 出力集合は片方の入力セットから作っても問題ないので、var1の出力を使う
+    samples = np.array([np.array(_calc_pdf_by_sampling_rec(var1, var2)[0]) for _ in range(100)])
+    max_vals = np.max(samples, axis=0) # それぞれの列の最大値が格納される
+    min_vals = np.min(samples, axis=0)
+    hist_range = []
+    for i in range(len(max_vals)):
+        hist_range.append((min_vals[i], max_vals[i]))
+    outputs1, outputs2 = [], []
+    for _ in range(SAMPLING_NUM):
+        output1, output2 = _calc_pdf_by_sampling_rec(var1, var2)
+        outputs1.append(output1)
+        outputs2.append(output2)
+    outputs1 = np.asarray(outputs1)
+    outputs2 = np.asarray(outputs2)
+    hist1, edges1 = np.histogramdd(outputs1, bins=GRID_NUM, range=hist_range)
+    hist2, edges2 = np.histogramdd(outputs2, bins=GRID_NUM, range=hist_range)
+    return HistPmf(hist1), HistPmf(hist2)
+
+class HistPmf(Pmf):
+    # histは二次元配列で、要素があるところに1が立つ
+    def __init__(self, hist):
+        self.hist = hist
+
 
 # TODO: Pmfクラスの名前を変えて、こちらに採用する
 class OPmf(Pmf):
     def __init__(self, val_to_prob=None):
-        super().__init__(val_to_prob)
+        super().__init__(val_to_prob=val_to_prob)
         self.name = "OPmf"
 
     def __call__(self):
@@ -177,6 +236,13 @@ class Add(Pmf):
             output_pdf = nonuniform_convolution(val1, val2, pdf1, pdf2, output_val_range, integral_way=integral)
             assert output_val_range.size == output_pdf.size
             return OPmf(dict(zip(output_val_range, output_pdf)))
+        
+    def func(self, args: list):
+        """
+        通常の関数としての振る舞い
+        """
+        assert len(args) == 2
+        return args[0] + args[1]
 
 
 """
@@ -220,6 +286,13 @@ class Max(Pmf):
         for v in output_vals:
             output_pdf.append(f1(v) * quad(f2, -INF, v)[0] + f2(v) * quad(f1, -INF, v)[0])
         return OPmf(dict(zip(output_vals, output_pdf)))
+    
+    def func(self):
+        """
+        通常の関数としての振る舞い
+        """
+        assert len(self.child) == 2
+        return max(self.child[0], self.child[1])
 
 """
 case(未実装)
@@ -232,8 +305,28 @@ class Case(Pmf):
 to_array(未実装)
 """
 class ToArray(Pmf):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.name = "ToArray"
+
+    def calc_pdf(self, children):
+        # 2次元配列を作成
+        val_arr_2d = []
+        pdf_arr_2d =[]
+        for child in children:
+            val_arr_2d.append(list(child.val_to_prob.keys()))
+            pdf_arr_2d.append(list(child.val_to_prob.values()))
+        val_to_pdf = {}
+        for val, pdf in zip(product(*val_arr_2d), product(*pdf_arr_2d)):
+            val_to_pdf[val] = np.prod(pdf)
+        return OPmf(val_to_pdf)
+
+    
+    def func(self, args):
+        """
+        子をまとめて配列として返す
+        """
+        return args
 
 class ArrayItem:
     def __init__(self, ind: int, parent: Array):
@@ -281,8 +374,9 @@ eps = 0.1
 sens = 1
 # 配列要素それぞれにラプラスノイズを加えて取り出す
 Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(Array(5), sens/eps)
-# Y = Max(Max(Max(Max(Lap1, Lap2), Lap3), Lap4), Lap5)
-Y = Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5)
+Y = Max(Max(Max(Max(Lap1, Lap2), Lap3), Lap4), Lap5)
+# Y = Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5)
+# Y = ToArray(Lap1, Add(Lap1, Lap2), Add(Add(Lap1, Lap2), Lap3), Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5))
 # このアルゴリズムで推定されたεの値が出力される
 
 
@@ -291,12 +385,3 @@ eps = Y.eps_est()
 print("----------")
 
 """"""
-
-# Lap1 = Laplace(0, 1)
-# Lap2 = Laplace(0, 1)
-# Lap3 = Laplace(0, 1)
-# Lap4 = Laplace(0, 1)
-# add = Add(Lap1, Lap2)
-# Y = Max(Max(Max(Lap1, Lap2), Lap3), Lap4)
-# print(Y.child)
-# print(Y.eps_est())

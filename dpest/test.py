@@ -1,73 +1,20 @@
-class Base:
-    def __init__(self, name, is_depend=False, child=None):
-        """
-        クラスの基底構造を表現
-        Args:
-            name (str): クラスの名前
-            is_depend (bool): True の場合、Pmf に置き換える
-            child (list): 子インスタンスのリスト
-        """
-        self.name = name
-        self.is_depend = is_depend
-        self.child = child if child else []  # 子インスタンスのリスト
+import numpy as np
 
-    def __repr__(self):
-        return f"{self.__class__.__name__}(name={self.name}, is_depend={self.is_depend})"
+# 5次元データを生成（各次元にランダムなデータを用意）
+data = np.random.uniform(-1, 1, size=(1000, 5))  # 1000サンプル, 5次元
 
+# 各次元10個のビンでヒストグラムを計算
+bins = 10  # 各次元のビン数
+hist, edges = np.histogramdd(data, bins=bins)
 
-class Laplace(Base):
-    pass  # Laplaceインスタンスを示すクラス
+# 総ビン数を計算
+total_bins = hist.size
 
-
-class Pmf(Base):
-    def __init__(self, original_instance):
-        """
-        Pmfクラスのコンストラクタ
-        Args:
-            original_instance (Base): 置き換えられる元のインスタンス
-        """
-        super().__init__(name=f"Pmf({original_instance.name})", is_depend=False)
-        self.original_instance = original_instance
-
-
-def traverse_and_replace(node):
-    """
-    木構造を走査し、Laplaceインスタンスまで遡る。
-    `is_depend` が True の場合にノードを Pmf に置き換える。
-    Args:
-        node (Base): 現在のノード
-    Returns:
-        Base: 更新されたノード
-    """
-    if isinstance(node, Laplace):
-        # Laplaceインスタンスの場合、処理を終了
-        return node
-
-    if node.is_depend:
-        # is_depend が True の場合、Pmfインスタンスに置き換える
-        print(f"Replacing {node} with Pmf instance.")
-        return Pmf(node)
-
-    # 子ノードを再帰的に処理
-    updated_children = [traverse_and_replace(child) for child in node.child]
-    node.child = updated_children
-    return node
-
-
-# 木構造の例
-root = Base("root", is_depend=False, child=[
-    Base("child1", is_depend=True),
-    Base("child2", is_depend=False, child=[
-        Laplace("laplace1"),
-        Base("child3", is_depend=True)
-    ])
-])
-
-print("Before:")
-print(root)
-
-# 木構造を走査して置き換え
-updated_root = traverse_and_replace(root)
-
-print("\nAfter:")
-print(updated_root.child)
+# 結果を表示
+print(f"5次元ヒストグラムの形状: {hist.shape}")
+print(f"総ビン数: {total_bins}")
+# print(hist)
+for index in np.ndindex(hist.shape):
+    bin_count = hist[index]
+    bin_edges = [edges[dim][index[dim]:index[dim]+2] for dim in range(5)]
+    print(f"ビンインデックス: {index}, カウント: {bin_count}, 境界: {bin_edges}")

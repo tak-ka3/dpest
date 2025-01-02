@@ -39,3 +39,16 @@ def search_vec_all(x: np.ndarray, y1: np.ndarray, y2: np.ndarray) -> np.float64:
             if max_ratio < ratio:
                 max_ratio = ratio
     return np.log(max_ratio)
+
+def search_hist(hist1, hist2):
+    max_ration = 0
+    cnt = 0
+    for ind in np.ndindex(hist1.shape):
+        cnt += 1
+        if hist1[ind] == 0 or hist2[ind] == 0:
+            continue
+        print(hist1[ind], hist2[ind])
+        ratio = hist1[ind] / hist2[ind] if hist1[ind] > hist2[ind] else hist2[ind] / hist1[ind]
+        if max_ration < ratio:
+            max_ration = ratio
+    return np.log(max_ration)
