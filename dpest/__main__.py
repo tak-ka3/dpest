@@ -436,15 +436,16 @@ def laplace_map():
 if __name__ == "__main__":
     eps = 0.1
     sens = 1
+    th =1
     # 配列要素それぞれにラプラスノイズを加えて取り出す
     Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(Array(5), sens/eps)
     # Y = Max(Max(Max(Max(Lap1, Lap2), Lap3), Lap4), Lap5)
     # # Y = Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5)
     # Y = ToArray(Lap1, Add(Lap1, Lap2), Add(Add(Lap1, Lap2), Lap3), Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5))
-    Arr = Array(5)
-    Lap = Laplace(0, 1/eps)
-    q1, q2, q3, q4, q5 = raw_extract(Array(5))
-    Y = ToArray(Comp(Lap, q1), Comp(Lap, q2), Comp(Lap, q3), Comp(Lap, q4), Comp(Lap, q5))
+    # Arr = Array(5)
+    Lap = Laplace(th, 1/eps)
+    # q1, q2, q3, q4, q5 = raw_extract(Array(5))
+    Y = ToArray(Comp(Lap1, Lap), Comp(Lap2, Lap), Comp(Lap3, Lap), Comp(Lap4, Lap), Comp(Lap5, Lap))
     # このアルゴリズムで推定されたεの値が出力される
 
 

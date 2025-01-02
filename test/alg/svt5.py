@@ -1,20 +1,11 @@
+from dpest.__main__ import laplace_extract, Array, ToArray, Laplace, raw_extract, Comp
+
+eps = 0.1
+sens = 1
+
 Arr = Array(5)
-Lap = Laplace(0, 1/eps)
+th = 1
+Lap = Laplace(th, sens/eps)
 q1, q2, q3, q4, q5 = raw_extract(Array(5))
 Y = ToArray(Comp(Lap, q1), Comp(Lap, q2), Comp(Lap, q3), Comp(Lap, q4), Comp(Lap, q5))
-
-eps= 0.11708693622350681
-eps= 0.11493295375039089
-eps= 0.4827112332002083
-eps= 0.4998278695564493
-eps= 0.46410481801095316
-eps= 0.49805513200512747
-eps= 0.4867289189965327
-
-"""
-感想：
-- 本来、eps=infとなるはずだが、小さい値になっている。
-    - 原因としては、サンプリングで行っているから仕方ない部分もありそう
-    - 依存関係が比較的単純なので、解析的に求めることができるはず
-- 
-"""
+eps = Y.eps_est()

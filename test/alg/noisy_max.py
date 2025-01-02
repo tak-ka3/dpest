@@ -1,19 +1,8 @@
-# impl
-Y = Max(Max(Max(Max(Lap1, Lap2), Lap3), Lap4), Lap5)
-# result
-eps= 0.5000000000029746
-eps= 0.5000000000425202
-eps= 0.5000000000029746
-eps= 0.5000000000425202
-eps= 0.5000000000425202
-eps= 0.5000000000029746
-eps= 0.5000000000425202
+from dpest.__main__ import laplace_extract, Array, Max
 
-# サンプリング実装後に結果がなぜか変わった
-eps= 0.0999999999985758
-eps= 0.10000000001210738
-eps= 0.3000000000279512
-eps= 0.3108838984783434
-eps= 0.21398450319613327
-eps= 0.5000000000029746
-eps= 0.10000000000239458
+eps = 0.1
+sens = 1
+Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(Array(5), sens/eps)
+
+Y = Max(Max(Max(Max(Lap1, Lap2), Lap3), Lap4), Lap5)
+eps = Y.eps_est()

@@ -1,20 +1,8 @@
-# impl
+from dpest.__main__ import laplace_extract, Array, Add
+
+eps = 0.1
+sens = 1
+Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(Array(5), sens/eps)
+
 Y = Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5)
-
-# result
-eps= 0.5000000000000031
-eps= 0.5000000000000009
-eps= 0.5000000000000031
-eps= 0.5000000000000009
-eps= 0.5000000000000009
-eps= 0.5000000000000031
-eps= 0.5000000000000009
-
-# サンプリング実装後に結果がなぜか変わった
-eps= 0.10000000000000088
-eps= 0.10000000000000069
-eps= 0.30000044062166625
-eps= 0.3000003778534278
-eps= 0.10001260254779085
-eps= 0.5000000000000031
-eps= 0.10000000000000048
+eps = Y.eps_est()

@@ -1,0 +1,28 @@
+version: '3'
+
+tasks:
+  noisy_sum:
+    desc: algorithm NoisySum
+    cmds:
+      - echo "correct_eps=0.1"
+      - python -m test.alg.noisy_sum
+  prefix_sum:
+    desc: algorithm PrefixSum
+    cmds:
+      - echo "correct_eps=0.1"
+      - python -m test.alg.prefix_sum
+  noisy_max:
+    desc: algorithm NoisyMax
+    cmds:
+      - echo "correct_eps=0.1"
+      - python -m test.alg.noisy_max
+  svt5:
+    desc: algorithm SVT5
+    cmds:
+      - echo "correct_eps=inf"
+      - python -m test.alg.svt5
+  svt6:
+    desc: algorithm SVT6
+    cmds:
+      - echo "correct_eps=inf"
+      - python -m test.alg.svt6
