@@ -18,7 +18,7 @@ LAP_VAL_NUM = 1000
 INF = 10000
 SAMPLING_NUM = 1000000
 # サンプリングによって出力の確率を求める際の、確率変数の値を区切るグリッドの数
-GRID_NUM = 2
+GRID_NUM = 5
 
 """
 確率質量関数
@@ -137,6 +137,8 @@ def calc_pdf_by_sampling(var1, var2, input_comb):
                 return prng.laplace(var1.child[0], var1.b), prng.laplace(var2.child[0], var2.b)
             else:
                 raise ValueError("Invalid value")
+        elif isinstance(var1, ArrayItem):
+            return input_val_list1[var1.ind], input_val_list2[var2.ind]
         updated_child1, updated_child2 = [], []
         for child1, child2 in zip(var1.child, var2.child):
             c1, c2 = _calc_pdf_by_sampling_rec(child1, child2)
@@ -182,7 +184,7 @@ class Laplace(Pmf):
     def __init__(self, mu: float | ArrayItem, b: float):
         super().__init__()
         self.child = [mu]
-        self.name = f"Laplace({mu.name}, {b})"
+        self.name = f"Laplace({mu.name if isinstance(mu, ArrayItem) else mu}, {b})"
         self.depend_vars = [self]
         self.upper = LAP_UPPER
         self.lower = LAP_LOWER
@@ -266,9 +268,6 @@ class Max(Pmf):
         self.name = f"Max({var1.name}, {var2.name})"
         self.is_args_depend = len(set(var1.depend_vars) & set(var2.depend_vars)) > 0
         self.depend_vars = list(set(var1.depend_vars) | set(var2.depend_vars))
-
-    def __call__(self, var1: Pmf, var2: Pmf):
-        return max(var1(), var2())
     
     def calc_pdf(self, child):
         """
@@ -287,12 +286,63 @@ class Max(Pmf):
             output_pdf.append(f1(v) * quad(f2, -INF, v)[0] + f2(v) * quad(f1, -INF, v)[0])
         return OPmf(dict(zip(output_vals, output_pdf)))
     
-    def func(self):
+    def func(self, args: list):
         """
         通常の関数としての振る舞い
         """
-        assert len(self.child) == 2
-        return max(self.child[0], self.child[1])
+        assert len(args) == 2
+        return max(args)
+    
+class Comp(Pmf):
+    """
+    二つの確率変数を引数に取り、大きかったらTrueを小さかったらFalseを返す
+    引数に定数を取るとしたら、第二引数に定数を取るようにする
+    e.g. Comp(pmf, const) or Comp(pmf1, pmf2)
+    """
+    def __init__(self, var1: Pmf, var2: Pmf | int | float):
+        super().__init__()
+        self.child = [var1, var2]
+        self.name = f"Comp({var1.name}, {var2.name})"
+        self.is_args_depend = len(set(var1.depend_vars) & set(var2.depend_vars)) > 0
+        self.depend_vars = list(set(var1.depend_vars) | set(var2.depend_vars))
+
+    def _calc_pdf(self, children):
+        assert len(children) == 2
+        child1, child2 = children
+
+        # 片方がArrayItemという定数
+        if isinstance(child1, int | float) or isinstance(child2, int | float):
+            const, pmf = child1, child2 if isinstance(child1, int | float) else child2, child1
+            val = list(pmf.val_to_prob.keys())
+            pdf = list(pmf.val_to_prob.values())
+            f = interpolate.CubicSpline(val, pdf, bc_type='natural', extrapolate=True)
+            lower_pdf = quad(f, -INF, const)[0]
+            upper_pr = 1 - lower_pdf # quad(f, const, INF)[0]という計算にした方が良いかもしれない
+            assert upper_pr >= 0
+            return OPmf({True: upper_pr, False: lower_pdf})
+        else: # どちらも確率変数
+            pmf1, pmf2 = child1, child2
+            val1 = list(pmf1.val_to_prob.keys())
+            pdf1 = list(pmf1.val_to_prob.values())
+            val2 = list(pmf2.val_to_prob.keys())
+            pdf2 = list(pmf2.val_to_prob.values())
+            output_vals = np.unique(np.concatenate([val1, val2]))
+
+            f1 = interpolate.CubicSpline(val1, pdf1, bc_type='natural', extrapolate=True)
+            f2 = interpolate.CubicSpline(val2, pdf2, bc_type='natural', extrapolate=True)
+            true_pdf = 0
+            false_pdf = 0
+            for v in output_vals:
+                true_pdf += f1(v) * quad(f2, -INF, v)[0]
+                false_pdf += f2(v) * quad(f1, -INF, v)[0]
+            return OPmf({True: true_pdf, False: false_pdf})
+
+    def func(self, args: list):
+        """
+        通常の関数としての振る舞い
+        """
+        assert len(args) == 2
+        return args[0] > args[1]
 
 """
 case(未実装)
@@ -328,8 +378,9 @@ class ToArray(Pmf):
         """
         return args
 
-class ArrayItem:
+class ArrayItem(Pmf):
     def __init__(self, ind: int, parent: Array):
+        super().__init__()
         self.ind = ind
         self.parent = parent
         self.name = f"ArrayItem({ind})"
@@ -361,6 +412,18 @@ def laplace_extract(arr: Array, scale: float):
             raise ValueError("Invalid value")
     return lap_list
 
+def raw_extract(arr: Array):
+    """
+    配列要素それぞれにラプラスノイズを加えて取り出す
+    """
+    lap_list = []
+    for val in arr:
+        if isinstance(val, ArrayItem):
+            lap_list.append(val)
+        else:
+            raise ValueError("Invalid value")
+    return lap_list
+
 """
 何かとあった方が良いかもしれない
 """
@@ -374,9 +437,13 @@ eps = 0.1
 sens = 1
 # 配列要素それぞれにラプラスノイズを加えて取り出す
 Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(Array(5), sens/eps)
-Y = Max(Max(Max(Max(Lap1, Lap2), Lap3), Lap4), Lap5)
-# Y = Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5)
+# Y = Max(Max(Max(Max(Lap1, Lap2), Lap3), Lap4), Lap5)
+# # Y = Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5)
 # Y = ToArray(Lap1, Add(Lap1, Lap2), Add(Add(Lap1, Lap2), Lap3), Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5))
+Arr = Array(5)
+Lap = Laplace(0, 1/eps)
+q1, q2, q3, q4, q5 = raw_extract(Array(5))
+Y = ToArray(Comp(Lap, q1), Comp(Lap, q2), Comp(Lap, q3), Comp(Lap, q4), Comp(Lap, q5))
 # このアルゴリズムで推定されたεの値が出力される
 
 

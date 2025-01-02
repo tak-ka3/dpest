@@ -47,7 +47,6 @@ def search_hist(hist1, hist2):
         cnt += 1
         if hist1[ind] == 0 or hist2[ind] == 0:
             continue
-        print(hist1[ind], hist2[ind])
         ratio = hist1[ind] / hist2[ind] if hist1[ind] > hist2[ind] else hist2[ind] / hist1[ind]
         if max_ration < ratio:
             max_ration = ratio
