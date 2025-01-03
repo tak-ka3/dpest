@@ -31,3 +31,8 @@ tasks:
     cmds:
       - echo "correct_eps=0.1"
       - python -m test.alg.laplace_parallel
+  rappor:
+    desc: algorithm=Rappor, adj=1
+    cmds:
+      - echo "correct_eps=0.8"
+      - python -m test.alg.rappor

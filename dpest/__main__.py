@@ -64,6 +64,18 @@ class Pmf:
                     var1.val_to_prob = dict(zip(vals, probs1))
                     var2.val_to_prob = dict(zip(vals, probs2))
                     return var1, var2
+            elif isinstance(var1, Case):
+                # case_dictは辞書型だが、inputの値を取得する可能性もあるため、ここで処理する
+                for case_input, case_output in var1.case_dict.items():
+                    if isinstance(case_output, InputScalarToArrayItem):
+                        case_output.set_parent_array(input_val_list1[0])
+                        updated_val = case_output.get_array_item()
+                        var1.case_dict[case_input] = updated_val
+                for case_input, case_output in var2.case_dict.items():
+                    if isinstance(case_output, InputScalarToArrayItem):
+                        case_output.set_parent_array(input_val_list2[0])
+                        updated_val = case_output.get_array_item()
+                        var2.case_dict[case_input] = updated_val
             if var1.is_args_depend:
                 # ここでサンプリングにより確率密度を計算する
                 output_var1, output_var2 = calc_pdf_by_sampling(var1, var2, input_comb)
@@ -306,7 +318,7 @@ class Comp(Pmf):
         self.is_args_depend = len(set(var1.depend_vars) & set(var2.depend_vars)) > 0
         self.depend_vars = list(set(var1.depend_vars) | set(var2.depend_vars))
 
-    def _calc_pdf(self, children):
+    def calc_pdf(self, children):
         assert len(children) == 2
         child1, child2 = children
 
@@ -345,14 +357,40 @@ class Comp(Pmf):
         return args[0] > args[1]
 
 """
-case(未実装)
+確率変数を1つ引数に取り、特定の定数に等しい場合に、特定の値や確率変数を返す
 """
 class Case(Pmf):
-    def __init__(self):
+    def __init__(self, var: Pmf, case_dict: dict):
         super().__init__()
+        self.case_dict = case_dict
+        self.name = "Case"
+        self.child = [var]
+        self.is_args_depend = False
+        self.depend_vars = var.depend_vars
+    
+    def calc_pdf(self, children):
+        assert len(children) == 1
+        child = children[0]
+        output_dict = {}
+        for case_val, case_var in self.case_dict.items():
+            if isinstance(case_var, int | float):
+                if output_dict.get(case_var) is None:
+                    output_dict[case_var] = child.val_to_prob[case_val]
+                else:
+                    output_dict[case_var] += child.val_to_prob[case_val]
+            elif isinstance(case_var, Pmf):
+                val_to_prob = case_var.val_to_prob
+                for val, prob in val_to_prob.items():
+                    if output_dict.get(val) is None:
+                        output_dict[val] = prob * child.val_to_prob[case_val]
+                    else:
+                        output_dict[val] += prob * child.val_to_prob[case_val]
+            else:
+                raise ValueError("Invalid value")
+        return OPmf(output_dict)
 
 """
-to_array(未実装)
+引数の要素を一つの配列にまとめる
 """
 class ToArray(Pmf):
     def __init__(self, *args):
@@ -368,6 +406,8 @@ class ToArray(Pmf):
             pdf_arr_2d.append(list(child.val_to_prob.values()))
         val_to_pdf = {}
         for val, pdf in zip(product(*val_arr_2d), product(*pdf_arr_2d)):
+            if val_to_pdf.get(val):
+                raise ValueError("Invalid value")
             val_to_pdf[val] = np.prod(pdf)
         return OPmf(val_to_pdf)
     
@@ -378,7 +418,7 @@ class ToArray(Pmf):
         return args
 
 class ArrayItem(Pmf):
-    def __init__(self, ind: int, parent: Array):
+    def __init__(self, ind: int, parent: InputArray):
         super().__init__()
         self.ind = ind
         self.parent = parent
@@ -388,18 +428,51 @@ class ArrayItem(Pmf):
 シンボリックな配列の値のためのクラス
 プログラマはこれを用いてコードを書くが実際の値はこちらがε推定の時に代入する
 """
-class Array:
+class InputArray:
     def __init__(self, size):
         self.child = []
         self.size = size
-        self.name = "Array"
+        self.name = "InputArray"
     
     def __iter__(self):
         array_iter = [ArrayItem(i, self) for i in range(self.size)]
         return iter(array_iter)
 
 
-def laplace_extract(arr: Array, scale: float):
+class InputScalarToArrayItem:
+    """
+    InputScalarToArrayの要素を取り出すためのクラス
+    """
+    def __init__(self, ind: int, parent: InputScalarToArray):
+        self.name = "InputScalarToArrayItem"
+        self.scalar = None
+        self.ind = ind
+        self.parent = parent
+    
+    def set_parent_array(self, scalar):
+        if self.parent.array is None:
+            arr = self.parent.func(scalar)
+            self.parent.array = arr
+
+    def get_array_item(self):
+        if self.parent.array is None:
+            raise ValueError("Parent array is not set")
+        return self.parent.array[self.ind]
+
+class InputScalarToArray:
+    """
+    入力のスカラ値を配列に変換するクラス
+    """
+    def __init__(self, size: int, func):
+        self.size = size
+        self.func = func
+        self.input_scalar = None
+        self.array = None
+    
+    def __getitem__(self, ind):
+        return InputScalarToArrayItem(ind, self)
+
+def laplace_extract(arr: InputArray, scale: float):
     """
     配列要素それぞれにラプラスノイズを加えて取り出す
     """
@@ -411,7 +484,7 @@ def laplace_extract(arr: Array, scale: float):
             raise ValueError("Invalid value")
     return lap_list
 
-def raw_extract(arr: Array):
+def raw_extract(arr: InputArray):
     """
     配列要素それぞれにラプラスノイズを加えて取り出す
     """
@@ -437,13 +510,13 @@ if __name__ == "__main__":
     sens = 1
     th =1
     # 配列要素それぞれにラプラスノイズを加えて取り出す
-    Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(Array(5), sens/eps)
-    # Y = Max(Max(Max(Max(Lap1, Lap2), Lap3), Lap4), Lap5)
-    # # Y = Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5)
-    # Y = ToArray(Lap1, Add(Lap1, Lap2), Add(Add(Lap1, Lap2), Lap3), Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5))
-    # Arr = Array(5)
+    Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(InputArray(5), sens/eps)
+    rappor_f = 0.75
+    val_to_prob = {0: 0.5*rappor_f, 1: 0.5*rappor_f, 2: 1 - rappor_f}
+    pmf1, pmf2, pmf3, pmf4, pmf5 = Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob)
+    fil1, fil2, fil3, fil4, fil5 = Comp(pmf1, Lap1), Comp(pmf2, Lap2), Comp(pmf3, Lap3), Comp(pmf4, Lap4), Comp(pmf5, Lap5)
     Lap = Laplace(th, 1/eps)
-    # q1, q2, q3, q4, q5 = raw_extract(Array(5))
+    # q1, q2, q3, q4, q5 = raw_extract(InputArray(5))
     # Y = ToArray(Comp(Lap1, Lap), Comp(Lap2, Lap), Comp(Lap3, Lap), Comp(Lap4, Lap), Comp(Lap5, Lap))
     Y = ToArray(Lap1, Lap2, Lap3, Lap4, Lap5)
     # このアルゴリズムで推定されたεの値が出力される
