@@ -26,12 +26,12 @@ tasks:
   noisy_max_lap:
     desc: algorithm NoisyMaxLap
     cmds:
-      - echo "correct_eps=0.1"
+      - echo "correct_eps=0.5"
       - python -m test.alg.noisy_max_lap
   noisy_max_exp:
     desc: algorithm NoisyMaxExp
     cmds:
-      - echo "correct_eps=0.1"
+      - echo "correct_eps=0.5"
       - python -m test.alg.noisy_max_exp
   noisy_arg_max_lap:
     desc: algorithm NoisyArgMaxLap
