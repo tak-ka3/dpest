@@ -20,8 +20,12 @@ EXP_LOWER = 0
 EXP_VAL_NUM = 100
 INF = 10000
 SAMPLING_NUM = 100000
-# サンプリングによって出力の確率を求める際の、確率変数の値を区切るグリッドの数
+"""
+サンプリングによって出力の確率を求める際の、確率変数の値を区切るグリッドの数
+ただし、出力が整数値の場合は出力ごとにヒストグラムを作る
+"""
 GRID_NUM = 10
+
 
 """
 確率質量関数
@@ -180,9 +184,9 @@ def calc_pdf_by_sampling(var1, var2):
     def _calc_pdf_by_sampling_rec(var1: Pmf, var2: Pmf, sampling_val_memo: dict): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
         if sampling_val_memo.get(var1) is not None:
             return sampling_val_memo[var1], sampling_val_memo[var2]
-        if isinstance(var1, Laplace):
+        if isinstance(var1, Laplace | Exp):
             if isinstance(var1.child[0], int | float):
-                lap_sample1, lap_sample2 = prng.laplace(var1.child[0], var1.b), prng.laplace(var2.child[0], var2.b)
+                lap_sample1, lap_sample2 = var1.sampling(), var2.sampling()
                 sampling_val_memo[var1], sampling_val_memo[var2] = lap_sample1, lap_sample2
                 return lap_sample1, lap_sample2
             else:
@@ -283,6 +287,9 @@ class Laplace(Pmf):
         厳密な確率密度を計算する
         """
         return np.exp(-np.abs(vals - self.child[0]) / self.b) / (2 * self.b)
+    
+    def sampling(self):
+        return prng.laplace(self.child[0], self.b)
         
 
 class Exp(Pmf):
@@ -301,6 +308,9 @@ class Exp(Pmf):
         厳密な確率密度を計算する
         """
         return (1 / self.b) * np.exp(-(vals - self.child[0]) / self.b)
+    
+    def sampling(self):
+        return prng.exponential(self.b) + self.child[0]
 
 class Uni(Pmf):
     """

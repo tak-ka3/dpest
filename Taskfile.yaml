@@ -33,6 +33,16 @@ tasks:
     cmds:
       - echo "correct_eps=0.1"
       - python -m test.alg.noisy_max_exp
+  noisy_arg_max_lap:
+    desc: algorithm NoisyArgMaxLap
+    cmds:
+      - echo "correct_eps=0.1"
+      - python -m test.alg.noisy_arg_max_lap
+  noisy_arg_max_exp:
+    desc: algorithm NoisyArgMaxExp
+    cmds:
+      - echo "correct_eps=0.1"
+      - python -m test.alg.noisy_arg_max_exp
   svt5:
     desc: algorithm SVT5
     cmds:
