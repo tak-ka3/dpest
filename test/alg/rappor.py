@@ -1,6 +1,6 @@
 import numpy as np
 import mmh3
-from dpest.__main__ import OPmf, ToArray, Case, InputScalarToArray
+from dpest.__main__ import RawPmf, ToArray, Case, InputScalarToArray
 
 def populate_bloom_filter(val):
     filter_size = 20
@@ -14,10 +14,10 @@ def populate_bloom_filter(val):
 filter_size = 20
 rappor_f = 0.75
 val_to_prob = {0: 0.5*rappor_f, 1: 0.5*rappor_f, 2: 1 - rappor_f}
-pmf1, pmf2, pmf3, pmf4, pmf5 = OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob)
-pmf6, pmf7, pmf8, pmf9, pmf10 = OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob)
-pmf11, pmf12, pmf13, pmf14, pmf15 = OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob)
-pmf16, pmf17, pmf18, pmf19, pmf20 = OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob)
+pmf1, pmf2, pmf3, pmf4, pmf5 = RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob)
+pmf6, pmf7, pmf8, pmf9, pmf10 = RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob)
+pmf11, pmf12, pmf13, pmf14, pmf15 = RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob)
+pmf16, pmf17, pmf18, pmf19, pmf20 = RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob)
 case_dict_list = []
 # 計算グラフでInputArrayクラスの要素にアクセスしたと同時に、入力からBloom Filterを生成して、それを再利用する
 Arr = InputScalarToArray(size=filter_size, func=populate_bloom_filter)
@@ -27,14 +27,14 @@ for i in range(filter_size):
 p, q = 0.45, 0.55
 p_val_to_prob = {0: 1-p, 1: p}
 q_val_to_prob = {0: 1-q, 1: q}
-pmf1q, pmf2q, pmf3q, pmf4q, pmf5q = OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob)
-pmf6q, pmf7q, pmf8q, pmf9q, pmf10q = OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob)
-pmf11q, pmf12q, pmf13q, pmf14q, pmf15q = OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob)
-pmf16q, pmf17q, pmf18q, pmf19q, pmf20q = OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob), OPmf(val_to_prob=q_val_to_prob)
-pmf1p, pmf2p, pmf3p, pmf4p, pmf5p = OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob)
-pmf6p, pmf7p, pmf8p, pmf9p, pmf10p = OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob)
-pmf11p, pmf12p, pmf13p, pmf14p, pmf15p = OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob)
-pmf16p, pmf17p, pmf18p, pmf19p, pmf20p = OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob), OPmf(val_to_prob=p_val_to_prob)
+pmf1q, pmf2q, pmf3q, pmf4q, pmf5q = RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob)
+pmf6q, pmf7q, pmf8q, pmf9q, pmf10q = RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob)
+pmf11q, pmf12q, pmf13q, pmf14q, pmf15q = RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob)
+pmf16q, pmf17q, pmf18q, pmf19q, pmf20q = RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob), RawPmf(val_to_prob=q_val_to_prob)
+pmf1p, pmf2p, pmf3p, pmf4p, pmf5p = RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob)
+pmf6p, pmf7p, pmf8p, pmf9p, pmf10p = RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob)
+pmf11p, pmf12p, pmf13p, pmf14p, pmf15p = RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob)
+pmf16p, pmf17p, pmf18p, pmf19p, pmf20p = RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob), RawPmf(val_to_prob=p_val_to_prob)
 
 Y = ToArray(
     Case(Case(pmf1, case_dict_list[0]), {0: pmf1p, 1: pmf1q}), 

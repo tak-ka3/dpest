@@ -1,6 +1,6 @@
 import numpy as np
 import mmh3
-from dpest.__main__ import OPmf, ToArray, Case, InputScalarToArray
+from dpest.__main__ import RawPmf, ToArray, Case, InputScalarToArray
 
 def populate_bloom_filter(val):
     filter_size = 20
@@ -14,10 +14,10 @@ def populate_bloom_filter(val):
 filter_size = 20
 rappor_f = 0.95
 val_to_prob = {0: 0.5*rappor_f, 1: 0.5*rappor_f, 2: 1 - rappor_f}
-pmf1, pmf2, pmf3, pmf4, pmf5 = OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob)
-pmf6, pmf7, pmf8, pmf9, pmf10 = OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob)
-pmf11, pmf12, pmf13, pmf14, pmf15 = OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob)
-pmf16, pmf17, pmf18, pmf19, pmf20 = OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob), OPmf(val_to_prob=val_to_prob)
+pmf1, pmf2, pmf3, pmf4, pmf5 = RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob)
+pmf6, pmf7, pmf8, pmf9, pmf10 = RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob)
+pmf11, pmf12, pmf13, pmf14, pmf15 = RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob)
+pmf16, pmf17, pmf18, pmf19, pmf20 = RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob), RawPmf(val_to_prob=val_to_prob)
 case_dict_list = []
 # 計算グラフでInputArrayクラスの要素にアクセスしたと同時に、入力からBloom Filterを生成して、それを再利用する
 Arr = InputScalarToArray(size=filter_size, func=populate_bloom_filter)
