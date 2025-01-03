@@ -31,8 +31,13 @@ tasks:
     cmds:
       - echo "correct_eps=0.1"
       - python -m test.alg.laplace_parallel
+  onetime_rappor:
+    desc: algorithm=OneTimeRappor, adj=1
+    cmds:
+      - echo "correct_eps=0.8"
+      - python -m test.alg.onetime_rappor
   rappor:
     desc: algorithm=Rappor, adj=1
     cmds:
-      - echo "correct_eps=0.8"
+      - echo "correct_eps=0.4"
       - python -m test.alg.rappor
