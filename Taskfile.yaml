@@ -1,6 +1,18 @@
 version: '3'
 
 tasks:
+  all:
+    desc: Run all tests
+    deps:
+      - noisy_sum
+      - prefix_sum
+      - noisy_max
+      - svt5
+      - svt6
+      - laplace_parallel
+      - onetime_rappor
+      - rappor
+      - truncated_geometric
   noisy_sum:
     desc: algorithm NoisySum
     cmds:
@@ -41,3 +53,8 @@ tasks:
     cmds:
       - echo "correct_eps=0.4"
       - python -m test.alg.rappor
+  truncated_geometric:
+    desc: algorithm=TruncatedGeometric, adj=1
+    cmds:
+      - echo "correct_eps=0.12"
+      - python -m test.alg.truncated_geometric

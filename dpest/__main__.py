@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import copy
 from scipy import interpolate
 from scipy.integrate import quad
-from itertools import product
+from itertools import product, combinations
 from dpest.input_generator import input_generator
 from dpest.search import search_scalar_all, search_hist
 from utils.pr_calc import nonuniform_convolution
@@ -14,11 +14,11 @@ prng = np.random.default_rng(seed=42)
 # TODO: 以下のパラメタの調整
 LAP_UPPER = 50
 LAP_LOWER = -50
-LAP_VAL_NUM = 10
+LAP_VAL_NUM = 100
 INF = 10000
-SAMPLING_NUM = 1000000
+SAMPLING_NUM = 100000
 # サンプリングによって出力の確率を求める際の、確率変数の値を区切るグリッドの数
-GRID_NUM = 5
+GRID_NUM = 10
 
 """
 確率質量関数
@@ -40,17 +40,16 @@ class Pmf:
         # self.depend_vars = [] # この確率変数が依存している確率変数で、LaplaceかPmfのような元の確率変数しか含まない
         self.is_sampling = False
 
-    def _resolve_dependency(self, input_comb: tuple):
+    def _insert_input(self, input_comb: tuple):
         """
-        あとは解析的に計算することが可能な計算グラフが出来上がる
-        TODO: 一つ上の階層の関数がいらないかもしれない
+        計算グラフを走査して入力を挿入する
         """
         Y1 = copy.deepcopy(self)
         Y2 = copy.deepcopy(self)
         input_val_list1 = input_comb[0]
         input_val_list2 = input_comb[1]
-        def _resolve_dependency_rec(var1: Pmf, var2: Pmf): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
-            # TODO: Pmfクラスも対応できるように、var.child==[]という条件分岐にする
+
+        def _insert_input_rec(var1: Pmf, var2: Pmf):
             if isinstance(var1, Laplace):
                 assert len(var1.child) == 1
                 if isinstance(var1.child[0], int | float):
@@ -64,6 +63,10 @@ class Pmf:
                     var1.val_to_prob = dict(zip(vals, probs1))
                     var2.val_to_prob = dict(zip(vals, probs2))
                     return var1, var2
+            elif isinstance(var1, ArrayItem):
+                var1 = input_val_list1[var1.ind]
+                var2 = input_val_list2[var2.ind]
+                return var1, var2
             elif isinstance(var1, Case):
                 # case_dictは辞書型だが、inputの値を取得する可能性もあるため、ここで処理する
                 for case_input, case_output in var1.case_dict.items():
@@ -76,9 +79,41 @@ class Pmf:
                         case_output.set_parent_array(input_val_list2[0])
                         updated_val = case_output.get_array_item()
                         var2.case_dict[case_input] = updated_val
+            elif isinstance(var1, Br):
+                for i in range(len(var1.child)):
+                    if isinstance(var1.child[i], InputScalarToArrayItem):
+                        var1.child[i].set_parent_array(input_val_list1[0])
+                        updated_val1 = var1.child[i].get_array_item()
+                        var1.child[i] = updated_val1
+                    if isinstance(var2.child[i], InputScalarToArrayItem):
+                        var2.child[i].set_parent_array(input_val_list2[0])
+                        updated_val2 = var2.child[i].get_array_item()
+                        var2.child[i] = updated_val2
+            elif not isinstance(var1, Pmf):
+                return var1, var2
+            updated_child1, updated_child2 = [], []
+            for child1, child2 in zip(var1.child, var2.child):
+                c1, c2 = _insert_input_rec(child1, child2)
+                updated_child1.append(c1)
+                updated_child2.append(c2)
+            var1.child = updated_child1
+            var2.child = updated_child2
+            return var1, var2
+            
+        return _insert_input_rec(Y1, Y2)
+
+    def _resolve_dependency(self, Y1: Pmf, Y2: Pmf, input_comb: tuple):
+        """
+        計算グラフを走査して、依存関係を調べる
+        Operationの引数に依存関係を見つけたら、その時点でサンプリングにより確率密度を計算する
+        TODO: 一つ上の階層の関数がいらないかもしれない
+        """
+        def _resolve_dependency_rec(var1: Pmf, var2: Pmf): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
+            if isinstance(var1, Laplace | RawPmf | HistPmf | Uni | np.float64 | np.int64 | int):
+                return var1, var2
             if var1.is_args_depend:
                 # ここでサンプリングにより確率密度を計算する
-                output_var1, output_var2 = calc_pdf_by_sampling(var1, var2, input_comb)
+                output_var1, output_var2 = calc_pdf_by_sampling(var1, var2)
                 return output_var1, output_var2
             updated_child1, updated_child2 = [], []
             for child1, child2 in zip(var1.child, var2.child):
@@ -99,7 +134,7 @@ class Pmf:
             var: 最終的に得られた確率変数。確率密度もプロパティに含む。
         """
         def _calc_pdf_rec(var):
-            if isinstance(var, Laplace | OPmf | HistPmf):
+            if isinstance(var, Laplace | Uni | RawPmf | HistPmf | np.float64 | np.int64 | int):
                 return var
             output_var = var.calc_pdf([_calc_pdf_rec(child) for child in var.child])
             return output_var
@@ -117,7 +152,8 @@ class Pmf:
         # TODO: infか1かの隣接性はプログラマが指定できるようにする
         input_list = input_generator("inf", 5)
         for input_set in input_list:
-            calc_graph1, calc_graph2 = self._resolve_dependency(input_set)
+            calc_graph1, calc_graph2 = self._insert_input(input_set)
+            calc_graph1, calc_graph2 = self._resolve_dependency(calc_graph1, calc_graph2, input_set)
             Y1 = self._calc_pdf(calc_graph1)
             Y2 = self._calc_pdf(calc_graph2)
 
@@ -133,49 +169,88 @@ class Pmf:
             print("eps=", eps)
         print("eps_est")
 
-def calc_pdf_by_sampling(var1, var2, input_comb):
+def calc_pdf_by_sampling(var1, var2):
     """
     サンプリングにより確率密度を計算し、OPmfに格納して返す
     """
-    input_val_list1 = input_comb[0]
-    input_val_list2 = input_comb[1]
-    def _calc_pdf_by_sampling_rec(var1: Pmf, var2: Pmf): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
+    # sampling_val_memoはサンプリングした値を記録するための辞書
+    def _calc_pdf_by_sampling_rec(var1: Pmf, var2: Pmf, sampling_val_memo: dict): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
+        if sampling_val_memo.get(var1) is not None:
+            return sampling_val_memo[var1], sampling_val_memo[var2]
         if isinstance(var1, Laplace):
             if isinstance(var1.child[0], int | float):
-                return prng.laplace(var1.child[0], var1.b), prng.laplace(var2.child[0], var2.b)
-            elif isinstance(var1.child[0], ArrayItem):
-                var1.child[0] = input_val_list1[var1.child[0].ind]
-                var2.child[0] = input_val_list2[var2.child[0].ind]
-                return prng.laplace(var1.child[0], var1.b), prng.laplace(var2.child[0], var2.b)
+                lap_sample1, lap_sample2 = prng.laplace(var1.child[0], var1.b), prng.laplace(var2.child[0], var2.b)
+                sampling_val_memo[var1], sampling_val_memo[var2] = lap_sample1, lap_sample2
+                return lap_sample1, lap_sample2
             else:
                 raise ValueError("Invalid value")
-        elif isinstance(var1, ArrayItem):
-            return input_val_list1[var1.ind], input_val_list2[var2.ind]
+        elif isinstance(var1, Uni):
+            uni_sample1, uni_sample2 = prng.integers(var1.lower, var1.upper), prng.integers(var2.lower, var2.upper)
+            sampling_val_memo[var1], sampling_val_memo[var2] = uni_sample1, uni_sample2
+            return uni_sample1, uni_sample2
+        elif isinstance(var1, float | int | np.float64 | np.int64):
+            return var1, var2
         updated_child1, updated_child2 = [], []
         for child1, child2 in zip(var1.child, var2.child):
-            c1, c2 = _calc_pdf_by_sampling_rec(child1, child2)
+            c1, c2 = _calc_pdf_by_sampling_rec(child1, child2, sampling_val_memo)
             updated_child1.append(c1)
             updated_child2.append(c2)
         return var1.func(updated_child1), var2.func(updated_child2)
 
     # 最小値と最大値を知るためのサンプリング
     # 出力集合は片方の入力セットから作っても問題ないので、var1の出力を使う
-    samples = np.array([np.array(_calc_pdf_by_sampling_rec(var1, var2)[0]) for _ in range(100)])
-    max_vals = np.max(samples, axis=0) # それぞれの列の最大値が格納される
-    min_vals = np.min(samples, axis=0)
-    hist_range = []
-    for i in range(len(max_vals)):
-        hist_range.append((min_vals[i], max_vals[i]))
-    outputs1, outputs2 = [], []
-    for _ in range(SAMPLING_NUM):
-        output1, output2 = _calc_pdf_by_sampling_rec(var1, var2)
-        outputs1.append(output1)
-        outputs2.append(output2)
-    outputs1 = np.asarray(outputs1)
-    outputs2 = np.asarray(outputs2)
-    hist1, edges1 = np.histogramdd(outputs1, bins=GRID_NUM, range=hist_range)
-    hist2, edges2 = np.histogramdd(outputs2, bins=GRID_NUM, range=hist_range)
-    return HistPmf(hist1), HistPmf(hist2)
+    sampling_val_memo = {}
+    one_sample = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)[0]
+    output_type = type(one_sample)
+
+    # 最小値と最大値を求めるためのサンプリング
+    test_samples = 200
+    samples = np.empty(test_samples, dtype=output_type)
+    for i in range(test_samples):
+        sampling_val_memo = {}
+        samples[i] = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)[0]
+    # εを求めるためのサンプリング
+    if isinstance(one_sample, int | np.int64 | float | np.float64):
+        max_vals = np.max(samples)
+        min_vals = np.min(samples)
+        outputs1, outputs2 = [], []
+        for _ in range(SAMPLING_NUM):
+            sampling_val_memo = {}
+            output1, output2 = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)
+            outputs1.append(output1)
+            outputs2.append(output2)
+        outputs1 = np.asarray(outputs1)
+        outputs2 = np.asarray(outputs2)
+        # 出力が整数値の場合は、それぞれ整数値ごとにヒストグラムを作成する
+        if isinstance(samples[0], np.int64 | int):
+            # 整数値ごとのヒストグラムを作る際には、このように+2する必要がある
+            hist_range = np.arange(min_vals, max_vals + 2)
+            hist1, edges1 = np.histogram(outputs1, bins=hist_range)
+            hist2, edges2 = np.histogram(outputs2, bins=hist_range)
+        else:
+            hist_range = (min_vals, max_vals)
+            hist1, edges1 = np.histogram(outputs1, bins=GRID_NUM, range=hist_range)
+            hist2, edges2 = np.histogram(outputs2, bins=GRID_NUM, range=hist_range)
+        return HistPmf(hist1), HistPmf(hist2)
+    elif isinstance(one_sample, np.ndarray | list):
+        max_vals = np.max(samples, axis=0) # それぞれの列の最大値が格納される
+        min_vals = np.min(samples, axis=0)
+        hist_range = []
+        for i in range(len(max_vals)):
+            hist_range.append((min_vals[i], max_vals[i]))
+        outputs1, outputs2 = [], []
+        for _ in range(SAMPLING_NUM):
+            sampling_val_memo = {}
+            output1, output2 = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)
+            outputs1.append(output1)
+            outputs2.append(output2)
+        outputs1 = np.asarray(outputs1)
+        outputs2 = np.asarray(outputs2)
+        hist1, edges1 = np.histogramdd(outputs1, bins=GRID_NUM, range=hist_range)
+        hist2, edges2 = np.histogramdd(outputs2, bins=GRID_NUM, range=hist_range)
+        return HistPmf(hist1), HistPmf(hist2)
+    else:
+        raise ValueError("output_type is invalid")
 
 class HistPmf(Pmf):
     # histは二次元配列で、要素があるところに1が立つ
@@ -184,13 +259,10 @@ class HistPmf(Pmf):
 
 
 # TODO: Pmfクラスの名前を変えて、こちらに採用する
-class OPmf(Pmf):
+class RawPmf(Pmf):
     def __init__(self, val_to_prob=None):
         super().__init__(val_to_prob=val_to_prob)
-        self.name = "OPmf"
-
-    def __call__(self):
-        return prng.laplace(0, 1)
+        self.name = "RawPmf"
 
 class Laplace(Pmf):
     def __init__(self, mu: float | ArrayItem, b: float):
@@ -205,11 +277,24 @@ class Laplace(Pmf):
 
     def __call__(self, mu: float, b: float):
         return prng.laplace(mu, b)
+    
+class Uni(Pmf):
+    """
+    一様分布
+    """
+    def __init__(self, lower: int, upper: int):
+        prob = 1 / (upper - lower)
+        val_to_prob = {i: prob for i in range(lower, upper)}
+        super().__init__(val_to_prob=val_to_prob)
+        self.name = f"Uni({lower}, {upper})"
+        self.depend_vars = [self]
+        self.lower = lower
+        self.upper = upper
 
-"""
-addクラス
-"""
 class Add(Pmf):
+    """
+    二つの確率変数同士を足すクラス
+    """
     def __init__(self, var1: Pmf, var2: Pmf):
         super().__init__()
         self.child = [var1, var2]
@@ -234,7 +319,7 @@ class Add(Pmf):
             start_val = val1[0] + val2[0]
             output_val_num = len(val1) + len(val2) - 1
             output_val_range = np.arange(start_val, start_val + dx*output_val_num, dx)
-            return OPmf(dict(zip(output_val_range, output_pdf)))
+            return RawPmf(dict(zip(output_val_range, output_pdf)))
         # TODO: こちら側の処理が正しいかを確認する（NoisySumでやや怪しい気がした）
         else:
             # 各PDFを順次畳み込み
@@ -249,7 +334,7 @@ class Add(Pmf):
             integral = "trapz"
             output_pdf = nonuniform_convolution(val1, val2, pdf1, pdf2, output_val_range, integral_way=integral)
             assert output_val_range.size == output_pdf.size
-            return OPmf(dict(zip(output_val_range, output_pdf)))
+            return RawPmf(dict(zip(output_val_range, output_pdf)))
         
     def func(self, args: list):
         """
@@ -257,18 +342,6 @@ class Add(Pmf):
         """
         assert len(args) == 2
         return args[0] + args[1]
-
-
-"""
-brクラス(未実装)
-"""
-class Br(Pmf):
-    def __init__(self, var1: Pmf, var2: Pmf):
-        super().__init__()
-        self.child = [var1, var2]
-        self.name = f"Br({var1.name}, {var2.name})"
-        self.is_args_depend = len(set(var1.depend_vars) & set(var2.depend_vars)) > 0
-        self.depend_vars = list(set(var1.depend_vars) | set(var2.depend_vars))
 
 """
 max
@@ -296,7 +369,7 @@ class Max(Pmf):
         output_pdf = []
         for v in output_vals:
             output_pdf.append(f1(v) * quad(f2, -INF, v)[0] + f2(v) * quad(f1, -INF, v)[0])
-        return OPmf(dict(zip(output_vals, output_pdf)))
+        return RawPmf(dict(zip(output_vals, output_pdf)))
     
     def func(self, args: list):
         """
@@ -305,6 +378,42 @@ class Max(Pmf):
         assert len(args) == 2
         return max(args)
     
+class Br(Pmf):
+    """
+    二つの確率変数または、一つの確率変数と定数を引数に取り、その大小関係に応じて、確率変数や定数を返す
+    Compクラスを包含するクラス
+    """
+    def __init__(self, input_var1: Pmf, input_var2: Pmf | int | float, output_var1: Pmf | int | float, output_var2: Pmf | int | float):
+        # assert isinstance(input_var1, Pmf) & isinstance(input_var2, Pmf | int | float)
+        super().__init__()
+        self.child = [input_var1, input_var2, output_var1, output_var2]
+        input_var1_name, input_var1_depend_vars = (input_var1.name, input_var1.depend_vars) if isinstance(input_var1, Pmf) else (input_var1, [])
+        input_var2_name, input_var2_depend_vars = (input_var2.name, input_var2.depend_vars) if isinstance(input_var2, Pmf) else (input_var2, [])
+        output_var1_name, output_var1_depend_vars = (output_var1.name, output_var1.depend_vars) if isinstance(output_var1, Pmf) else (output_var1, [])
+        output_var2_name, output_var2_depend_vars = (output_var2.name, output_var2.depend_vars) if isinstance(output_var2, Pmf) else (output_var2, [])
+        self.name = f"Br(input:({input_var1_name}, {input_var2_name}), output: ({output_var1_name}, {output_var2_name}))"
+        sets = [set(input_var1_depend_vars), set(input_var2_depend_vars), set(output_var1_depend_vars), set(output_var2_depend_vars)]
+        self.is_args_depend = False
+        for set1, set2 in combinations(sets, 2):
+            if set1 & set2:
+                self.is_args_depend = True
+        self.depend_vars = list(set(input_var1_depend_vars) | set(input_var2_depend_vars) | set(output_var1_depend_vars) | set(output_var2_depend_vars))
+
+    def calc_pdf(self, children):
+        assert len(children) == 4
+        input_var1, input_var2, output_var1, output_var2 = children
+        assert isinstance(input_var1, Pmf) & isinstance(input_var2, Pmf | int | float) & isinstance(output_var1, Pmf | int | float) & isinstance(output_var2, Pmf | int | float)
+        raise NotImplementedError # Brを用いて解析的に計算するアルゴリズムがないので未実装
+    
+    def func(self, args: list):
+        """
+        通常の関数としての振る舞い
+        """
+        assert len(args) == 4
+        input_var1, input_var2, output_var1, output_var2 = args
+        return output_var1 if input_var1 > input_var2 else output_var2
+
+
 class Comp(Pmf):
     """
     二つの確率変数を引数に取り、大きかったらTrueを小さかったらFalseを返す
@@ -312,6 +421,7 @@ class Comp(Pmf):
     e.g. Comp(pmf, const) or Comp(pmf1, pmf2)
     """
     def __init__(self, var1: Pmf, var2: Pmf | int | float):
+        assert isinstance(var1, Pmf) & isinstance(var2, Pmf | int | float)
         super().__init__()
         self.child = [var1, var2]
         self.name = f"Comp({var1.name}, {var2.name})"
@@ -331,7 +441,7 @@ class Comp(Pmf):
             lower_pdf = quad(f, -INF, const)[0]
             upper_pr = 1 - lower_pdf # quad(f, const, INF)[0]という計算にした方が良いかもしれない
             assert upper_pr >= 0
-            return OPmf({True: upper_pr, False: lower_pdf})
+            return RawPmf({True: upper_pr, False: lower_pdf})
         else: # どちらも確率変数
             pmf1, pmf2 = child1, child2
             val1 = list(pmf1.val_to_prob.keys())
@@ -347,7 +457,7 @@ class Comp(Pmf):
             for v in output_vals:
                 true_pdf += f1(v) * quad(f2, -INF, v)[0]
                 false_pdf += f2(v) * quad(f1, -INF, v)[0]
-            return OPmf({True: true_pdf, False: false_pdf})
+            return RawPmf({True: true_pdf, False: false_pdf})
 
     def func(self, args: list):
         """
@@ -387,12 +497,12 @@ class Case(Pmf):
                         output_dict[val] += prob * child.val_to_prob[case_val]
             else:
                 raise ValueError("Invalid value")
-        return OPmf(output_dict)
+        return RawPmf(output_dict)
 
-"""
-引数の要素を一つの配列にまとめる
-"""
 class ToArray(Pmf):
+    """
+    引数の要素を一つの配列にまとめる
+    """
     def __init__(self, *args):
         super().__init__(*args)
         self.name = "ToArray"
@@ -409,7 +519,7 @@ class ToArray(Pmf):
             if val_to_pdf.get(val):
                 raise ValueError("Invalid value")
             val_to_pdf[val] = np.prod(pdf)
-        return OPmf(val_to_pdf)
+        return RawPmf(val_to_pdf)
     
     def func(self, args):
         """
@@ -424,11 +534,12 @@ class ArrayItem(Pmf):
         self.parent = parent
         self.name = f"ArrayItem({ind})"
 
-"""
-シンボリックな配列の値のためのクラス
-プログラマはこれを用いてコードを書くが実際の値はこちらがε推定の時に代入する
-"""
+
 class InputArray:
+    """
+    シンボリックな配列の値のためのクラス
+    プログラマはこれを用いてコードを書くが実際の値はこちらがε推定の時に代入する
+    """
     def __init__(self, size):
         self.child = []
         self.size = size
