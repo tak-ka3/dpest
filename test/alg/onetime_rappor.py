@@ -1,6 +1,6 @@
 import numpy as np
 import mmh3
-from dpest.__main__ import OPmf,raw_extract, InputArray, ToArray, Case, InputScalarToArray
+from dpest.__main__ import OPmf, ToArray, Case, InputScalarToArray
 
 def populate_bloom_filter(val):
     filter_size = 20
@@ -10,11 +10,6 @@ def populate_bloom_filter(val):
         hashval = mmh3.hash(str(val), seed=i) % filter_size
         filter[hashval] = 1
     return filter
-
-a = lambda i, input_val: 1 if (i == mmh3.hash(str(input_val), seed=i) % 20) else 0
-
-eps = 0.1
-sens = 1
 
 filter_size = 20
 rappor_f = 0.95
