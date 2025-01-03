@@ -23,11 +23,16 @@ tasks:
     cmds:
       - echo "correct_eps=0.1"
       - python -m test.alg.prefix_sum
-  noisy_max:
-    desc: algorithm NoisyMax
+  noisy_max_lap:
+    desc: algorithm NoisyMaxLap
     cmds:
       - echo "correct_eps=0.1"
-      - python -m test.alg.noisy_max
+      - python -m test.alg.noisy_max_lap
+  noisy_max_exp:
+    desc: algorithm NoisyMaxExp
+    cmds:
+      - echo "correct_eps=0.1"
+      - python -m test.alg.noisy_max_exp
   svt5:
     desc: algorithm SVT5
     cmds:

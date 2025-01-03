@@ -15,6 +15,9 @@ prng = np.random.default_rng(seed=42)
 LAP_UPPER = 50
 LAP_LOWER = -50
 LAP_VAL_NUM = 100
+EXP_UPPER = 50
+EXP_LOWER = 0
+EXP_VAL_NUM = 100
 INF = 10000
 SAMPLING_NUM = 100000
 # サンプリングによって出力の確率を求める際の、確率変数の値を区切るグリッドの数
@@ -42,7 +45,7 @@ class Pmf:
 
     def _insert_input(self, input_comb: tuple):
         """
-        計算グラフを走査して入力を挿入する
+        計算グラフを走査して隣接した入力をそれぞれ挿入する
         """
         Y1 = copy.deepcopy(self)
         Y2 = copy.deepcopy(self)
@@ -50,7 +53,7 @@ class Pmf:
         input_val_list2 = input_comb[1]
 
         def _insert_input_rec(var1: Pmf, var2: Pmf):
-            if isinstance(var1, Laplace):
+            if isinstance(var1, Laplace | Exp):
                 assert len(var1.child) == 1
                 if isinstance(var1.child[0], int | float):
                     return var1, var2
@@ -58,8 +61,8 @@ class Pmf:
                     var1.child[0] = input_val_list1[var1.child[0].ind]
                     var2.child[0] = input_val_list2[var2.child[0].ind]
                     vals = np.linspace(var1.lower, var1.upper, var1.num)
-                    probs1 = np.exp(-np.abs(vals - var1.child[0]) / var1.b) / (2 * var1.b)
-                    probs2 = np.exp(-np.abs(vals - var2.child[0]) / var2.b) / (2 * var2.b)
+                    probs1 = var1.calc_strict_pdf(vals)
+                    probs2 = var2.calc_strict_pdf(vals)
                     var1.val_to_prob = dict(zip(vals, probs1))
                     var2.val_to_prob = dict(zip(vals, probs2))
                     return var1, var2
@@ -109,7 +112,7 @@ class Pmf:
         TODO: 一つ上の階層の関数がいらないかもしれない
         """
         def _resolve_dependency_rec(var1: Pmf, var2: Pmf): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
-            if isinstance(var1, Laplace | RawPmf | HistPmf | Uni | np.float64 | np.int64 | int):
+            if isinstance(var1, Laplace | Exp | RawPmf | HistPmf | Uni | np.float64 | np.int64 | int):
                 return var1, var2
             if var1.is_args_depend:
                 # ここでサンプリングにより確率密度を計算する
@@ -134,7 +137,7 @@ class Pmf:
             var: 最終的に得られた確率変数。確率密度もプロパティに含む。
         """
         def _calc_pdf_rec(var):
-            if isinstance(var, Laplace | Uni | RawPmf | HistPmf | np.float64 | np.int64 | int):
+            if isinstance(var, Laplace | Exp | Uni | RawPmf | HistPmf | np.float64 | np.int64 | int):
                 return var
             output_var = var.calc_pdf([_calc_pdf_rec(child) for child in var.child])
             return output_var
@@ -268,16 +271,37 @@ class Laplace(Pmf):
     def __init__(self, mu: float | ArrayItem, b: float):
         super().__init__()
         self.child = [mu]
+        self.b = b
         self.name = f"Laplace({mu.name if isinstance(mu, ArrayItem) else mu}, {b})"
         self.depend_vars = [self]
         self.upper = LAP_UPPER
         self.lower = LAP_LOWER
         self.num = LAP_VAL_NUM
-        self.b = b
 
-    def __call__(self, mu: float, b: float):
-        return prng.laplace(mu, b)
-    
+    def calc_strict_pdf(self, vals: np.ndarray):
+        """
+        厳密な確率密度を計算する
+        """
+        return np.exp(-np.abs(vals - self.child[0]) / self.b) / (2 * self.b)
+        
+
+class Exp(Pmf):
+    def __init__(self, mu: float | ArrayItem, b: float):
+        super().__init__()
+        self.child = [mu]
+        self.b = b
+        self.name = f"Exponential({mu.name if isinstance(mu, ArrayItem) else mu}, {b})"
+        self.depend_vars = [self]
+        self.upper = EXP_UPPER
+        self.lower = EXP_LOWER
+        self.num = EXP_VAL_NUM
+
+    def calc_strict_pdf(self, vals: np.ndarray):
+        """
+        厳密な確率密度を計算する
+        """
+        return (1 / self.b) * np.exp(-(vals - self.child[0]) / self.b)
+
 class Uni(Pmf):
     """
     一様分布
@@ -594,6 +618,18 @@ def laplace_extract(arr: InputArray, scale: float):
         else:
             raise ValueError("Invalid value")
     return lap_list
+
+def exp_extract(arr: InputArray, scale: float):
+    """
+    配列要素それぞれに指数分布ノイズを加えて取り出す
+    """
+    exp_list = []
+    for val in arr:
+        if isinstance(val, ArrayItem):
+            exp_list.append(Exp(val, scale))
+        else:
+            raise ValueError("Invalid value")
+    return exp_list
 
 def raw_extract(arr: InputArray):
     """
