@@ -24,7 +24,7 @@ SAMPLING_NUM = 100000
 サンプリングによって出力の確率を求める際の、確率変数の値を区切るグリッドの数
 ただし、出力が整数値の場合は出力ごとにヒストグラムを作る
 """
-GRID_NUM = 10
+GRID_NUM = 5
 
 
 """
@@ -76,16 +76,20 @@ class Pmf:
                 return var1, var2
             elif isinstance(var1, Case):
                 # case_dictは辞書型だが、inputの値を取得する可能性もあるため、ここで処理する
-                for case_input, case_output in var1.case_dict.items():
+                for case_input, case_output in var1.child[1].case_dict.items():
                     if isinstance(case_output, InputScalarToArrayItem):
                         case_output.set_parent_array(input_val_list1[0])
                         updated_val = case_output.get_array_item()
-                        var1.case_dict[case_input] = updated_val
-                for case_input, case_output in var2.case_dict.items():
+                        var1.child[1].case_dict[case_input] = updated_val
+                # CaseDictインスタンスの更新
+                var1.child[1].update_case_dict(var1.child[1].case_dict)
+
+                for case_input, case_output in var2.child[1].case_dict.items():
                     if isinstance(case_output, InputScalarToArrayItem):
                         case_output.set_parent_array(input_val_list2[0])
                         updated_val = case_output.get_array_item()
-                        var2.case_dict[case_input] = updated_val
+                        var2.child[1].case_dict[case_input] = updated_val
+                var2.child[1].update_case_dict(var2.child[1].case_dict)
             elif isinstance(var1, Br):
                 for i in range(len(var1.child)):
                     if isinstance(var1.child[i], InputScalarToArrayItem):
@@ -116,7 +120,7 @@ class Pmf:
         TODO: 一つ上の階層の関数がいらないかもしれない
         """
         def _resolve_dependency_rec(var1: Pmf, var2: Pmf): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
-            if isinstance(var1, Laplace | Exp | RawPmf | HistPmf | Uni | np.float64 | np.int64 | int):
+            if isinstance(var1, Laplace | Exp | RawPmf | HistPmf | Uni | np.float64 | np.int64 | int | str):
                 return var1, var2
             if var1.is_args_depend:
                 # ここでサンプリングにより確率密度を計算する
@@ -182,9 +186,11 @@ def calc_pdf_by_sampling(var1, var2):
     """
     # sampling_val_memoはサンプリングした値を記録するための辞書
     def _calc_pdf_by_sampling_rec(var1: Pmf, var2: Pmf, sampling_val_memo: dict): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
-        if sampling_val_memo.get(var1) is not None:
+        if isinstance(var1, float | int | np.float64 | np.int64 | str):
+            return var1, var2
+        elif sampling_val_memo.get(var1) is not None:
             return sampling_val_memo[var1], sampling_val_memo[var2]
-        if isinstance(var1, Laplace | Exp):
+        elif isinstance(var1, Laplace | Exp):
             if isinstance(var1.child[0], int | float):
                 lap_sample1, lap_sample2 = var1.sampling(), var2.sampling()
                 sampling_val_memo[var1], sampling_val_memo[var2] = lap_sample1, lap_sample2
@@ -195,8 +201,6 @@ def calc_pdf_by_sampling(var1, var2):
             uni_sample1, uni_sample2 = prng.integers(var1.lower, var1.upper), prng.integers(var2.lower, var2.upper)
             sampling_val_memo[var1], sampling_val_memo[var2] = uni_sample1, uni_sample2
             return uni_sample1, uni_sample2
-        elif isinstance(var1, float | int | np.float64 | np.int64):
-            return var1, var2
         updated_child1, updated_child2 = [], []
         for child1, child2 in zip(var1.child, var2.child):
             c1, c2 = _calc_pdf_by_sampling_rec(child1, child2, sampling_val_memo)
@@ -330,11 +334,19 @@ class Add(Pmf):
     二つの確率変数同士を足すクラス
     """
     def __init__(self, var1: Pmf, var2: Pmf):
+        assert isinstance(var1, Pmf) & isinstance(var2, Pmf | int | float)
         super().__init__()
         self.child = [var1, var2]
-        self.name = f"Add({var1.name}, {var2.name})"
-        self.is_args_depend = len(set(var1.depend_vars) & set(var2.depend_vars)) > 0
-        self.depend_vars = list(set(var1.depend_vars) | set(var2.depend_vars))
+        if isinstance(var2, Pmf):
+            self.name = f"Add({var1.name}, {var2.name})"
+            self.is_args_depend = len(set(var1.depend_vars) & set(var2.depend_vars)) > 0
+            self.depend_vars = list(set(var1.depend_vars) | set(var2.depend_vars))
+        elif isinstance(var2, int | float):
+            self.name = f"Add({var1.name}, {var2})"
+            self.is_args_depend = False
+            self.depend_vars = var1.depend_vars
+        else:
+            raise ValueError("var2 is an invalid type")
 
     def __call__(self, var1: Pmf, var2: Pmf):
         return var1() + var2()
@@ -343,6 +355,12 @@ class Add(Pmf):
         """
         引数から出力の確率密度を厳密に計算する
         """
+        if isinstance(child[1], int | float):
+            val1, pdf1 = list(child[0].val_to_prob.keys()), list(child[0].val_to_prob.values())
+            output_val1 = [v + child[1] for v in val1]
+            return RawPmf(dict(zip(output_val1, pdf1)))
+
+        # 二つの確率変数の和の確率密度を計算する
         val1 = list(child[0].val_to_prob.keys())
         pdf1 = list(child[0].val_to_prob.values())
         val2 = list(child[1].val_to_prob.keys())
@@ -445,7 +463,7 @@ class Br(Pmf):
         """
         assert len(args) == 4
         input_var1, input_var2, output_var1, output_var2 = args
-        return output_var1 if input_var1 > input_var2 else output_var2
+        return output_var1 if input_var1 >= input_var2 else output_var2
 
 
 class Comp(Pmf):
@@ -504,34 +522,144 @@ class Comp(Pmf):
 確率変数を1つ引数に取り、特定の定数に等しい場合に、特定の値や確率変数を返す
 """
 class Case(Pmf):
-    def __init__(self, var: Pmf, case_dict: dict):
+    def __new__(cls, var: Pmf | int | float = None, case_dict: dict = None):
+        if isinstance(var, int | float):
+            if case_dict.get(var) is None:
+                if case_dict.get("otherwise") is None:
+                    raise ValueError("Invalid Case")
+                return case_dict["otherwise"]
+            return case_dict[var]
+        return super().__new__(cls)
+    def __init__(self, var: Pmf | int | float, case_dict: dict):
+        assert isinstance(var, Pmf)
         super().__init__()
-        self.case_dict = case_dict
+        case_dict_instance = CaseDict(case_dict)
         self.name = "Case"
-        self.child = [var]
+        self.child = [var, case_dict_instance]
         self.is_args_depend = False
         self.depend_vars = var.depend_vars
     
     def calc_pdf(self, children):
-        assert len(children) == 1
+        assert len(children) == 2
+        assert isinstance(children[0], Pmf) & isinstance(children[1], CaseDict)
         child = children[0]
         output_dict = {}
-        for case_val, case_var in self.case_dict.items():
-            if isinstance(case_var, int | float):
-                if output_dict.get(case_var) is None:
-                    output_dict[case_var] = child.val_to_prob[case_val]
+        sum_case_val_prob = 0
+        # TODO: self.child[1].case_dict.items()に含まれるものがPmfか定数かなどの場合に応じて、計算方法が変わる
+        if self.child[1].arg_pmf_num == 0:
+            for case_val, case_var in self.child[1].case_dict.items():
+                if case_val == "otherwise":
+                    # otherwiseは最後に来る必要がある
+                    assert list(self.child[1].case_dict.keys())[-1] == "otherwise"
+                    case_val_prob = 1 - sum(output_dict.values())
                 else:
-                    output_dict[case_var] += child.val_to_prob[case_val]
-            elif isinstance(case_var, Pmf):
-                val_to_prob = case_var.val_to_prob
-                for val, prob in val_to_prob.items():
-                    if output_dict.get(val) is None:
-                        output_dict[val] = prob * child.val_to_prob[case_val]
+                    case_val_prob = child.val_to_prob[case_val]
+                sum_case_val_prob += case_val_prob
+                assert sum_case_val_prob <= 1
+                if output_dict.get(case_var) is None:
+                    output_dict[case_var] = case_val_prob
+                else:
+                    output_dict[case_var] += case_val_prob
+        elif self.child[1].arg_pmf_num == 1 or self.child[1].arg_pmf_num == 2: # case_dictのvalueの方に1or2個Pmfが含まれている
+            for case_val, case_var in self.child[1].case_dict.items():
+                if case_val == "otherwise":
+                    # otherwiseは最後に来る必要がある
+                    assert list(self.child[1].case_dict.keys())[-1] == "otherwise"
+                    case_val_prob = 1 - sum(output_dict.values())
+                else:
+                    assert isinstance(case_val, int | float | np.int64 | np.float64)
+                    case_val_prob = child.val_to_prob[case_val]
+                sum_case_val_prob += case_val_prob
+                assert sum_case_val_prob <= 1
+
+                if isinstance(case_var, int | float):
+                    if output_dict.get(case_var) is None:
+                        output_dict[case_var] = case_val_prob
                     else:
-                        output_dict[val] += prob * child.val_to_prob[case_val]
-            else:
-                raise ValueError("Invalid value")
+                        output_dict[case_var] += case_val_prob
+                elif isinstance(case_var, Pmf):
+                    val_to_prob = case_var.val_to_prob
+                    for val, prob in val_to_prob.items():
+                        if output_dict.get(val) is None:
+                            output_dict[val] = prob * case_val_prob
+                        else:
+                            output_dict[val] += prob * case_val_prob
+                else:
+                    raise ValueError("Invalid value")
+        else:
+            raise NotImplementedError("Invalid CaseDict")
         return RawPmf(output_dict)
+    
+    def func(self, args: list):
+        """
+        valに対応するcase_dictの値を返す
+        """
+        assert len(args) == 2
+        val = args[0]
+        case_dict = args[1]
+        assert isinstance(val, int | float | np.int64 | np.float64 ) & isinstance(case_dict, dict)
+        if case_dict.get(val) is None:
+            if case_dict.get("otherwise") is None:
+                raise ValueError("Invalid Case")
+            return case_dict["otherwise"]
+        return case_dict[val]
+
+class CaseDict(Pmf):
+    def __init__(self, case_dict: dict):
+        super().__init__()
+        self._set_case_dict(case_dict)
+        
+    def _set_case_dict(self, case_dict: dict):
+        self.case_dict = case_dict
+        pmf_children = []
+        children = []
+        for case_var, case_output in case_dict.items():
+            if isinstance(case_var, Pmf):
+                pmf_children.append(case_var)
+            if isinstance(case_output, Pmf):
+                pmf_children.append(case_output)
+            children.append(case_var)
+            children.append(case_output)
+        self.child = children
+        if len(pmf_children) == 0:
+            self.arg_pmf_num = 0
+            self.depend_vars = []
+            self.is_args_depend = False
+        elif len(pmf_children) == 1:
+            self.arg_pmf_num = 1
+            self.depend_vars = pmf_children[0].depend_vars
+            self.is_args_depend = pmf_children[0].is_args_depend
+        else:
+            self.arg_pmf_num = len(pmf_children)
+            sets = [set(pmf.depend_vars) for pmf in pmf_children]
+            self.is_args_depend = False
+            for set1, set2 in combinations(sets, 2):
+                if set1 & set2:
+                    self.is_args_depend = True
+            self.depend_vars = list(set.union(*sets))
+        self.name = f"CaseDict({self.child})"
+    
+    def update_case_dict(self, case_dict: dict):
+        self._set_case_dict(case_dict)
+
+    def calc_pdf(self, _):
+        """
+        Caseの引数として使われないので、確率密度ではなく、単にCaseDictを返す
+        self.childに情報が含まれているので、childrenの方は無視して良い
+        """
+        return self
+    
+    def func(self, args: list) -> dict:
+        """
+        argsには、childに入れた確率変数が入る
+        Return:
+            Caesクラスのみが引数にとるので、分岐のために辞書型で返したい
+        """
+        # 配列を辞書型に変換
+        case_dict = {}
+        for i in range(0, len(args), 2):
+            case_dict[args[i]] = args[i+1]
+        return case_dict
 
 class ToArray(Pmf):
     """

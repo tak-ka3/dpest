@@ -43,6 +43,11 @@ tasks:
     cmds:
       - echo "correct_eps=0.1"
       - python -m test.alg.noisy_arg_max_exp
+  svt1:
+    desc: algorithm SVT1
+    cmds:
+      - echo "correct_eps=0.1"
+      - python -m test.alg.svt1
   svt5:
     desc: algorithm SVT5
     cmds:
