@@ -5,7 +5,7 @@ sens = 1
 eps1 = eps/2
 eps2 = eps - eps1
 c = 1
-th = 1
+th = 0.5
 
 Arr = InputArray(5)
 Lap = Laplace(th, sens/eps1)
