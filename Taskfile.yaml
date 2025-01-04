@@ -48,6 +48,11 @@ tasks:
     cmds:
       - echo "correct_eps=0.1"
       - python -m test.alg.svt1
+  svt4:
+    desc: algorithm SVT4
+    cmds:
+      - echo "correct_eps=0.18"
+      - python -m test.alg.svt4
   svt5:
     desc: algorithm SVT5
     cmds:
