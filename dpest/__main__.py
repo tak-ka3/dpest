@@ -6,6 +6,7 @@ import copy
 from scipy import interpolate
 from scipy.integrate import quad
 from itertools import product, combinations
+from collections import Counter
 from dpest.input_generator import input_generator
 from dpest.search import search_scalar_all, search_hist
 from utils.pr_calc import nonuniform_convolution
@@ -21,8 +22,7 @@ EXP_VAL_NUM = 100
 INF = 10000
 SAMPLING_NUM = 100000
 """
-サンプリングによって出力の確率を求める際の、確率変数の値を区切るグリッドの数
-ただし、出力が整数値の場合は出力ごとにヒストグラムを作る
+サンプリングによって小数型の出力の確率を求める際に、確率変数の値を区切るグリッドの数
 """
 GRID_NUM = 5
 
@@ -182,7 +182,7 @@ class Pmf:
 
 def calc_pdf_by_sampling(var1, var2):
     """
-    サンプリングにより確率密度を計算し、OPmfに格納して返す
+    サンプリングにより確率密度を計算し、RawPmfに格納して返す
     """
     # sampling_val_memoはサンプリングした値を記録するための辞書
     def _calc_pdf_by_sampling_rec(var1: Pmf, var2: Pmf, sampling_val_memo: dict): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
@@ -214,14 +214,14 @@ def calc_pdf_by_sampling(var1, var2):
     one_sample = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)[0]
     output_type = type(one_sample)
 
-    # 最小値と最大値を求めるためのサンプリング
-    test_samples = 200
-    samples = np.empty(test_samples, dtype=output_type)
-    for i in range(test_samples):
-        sampling_val_memo = {}
-        samples[i] = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)[0]
     # εを求めるためのサンプリング
     if isinstance(one_sample, int | np.int64 | float | np.float64):
+        # 最小値と最大値を求めるためのサンプリング
+        test_samples = 200
+        samples = np.empty(test_samples, dtype=output_type)
+        for i in range(test_samples):
+            sampling_val_memo = {}
+            samples[i] = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)[0]
         max_vals = np.max(samples)
         min_vals = np.min(samples)
         outputs1, outputs2 = [], []
@@ -244,22 +244,69 @@ def calc_pdf_by_sampling(var1, var2):
             hist2, edges2 = np.histogram(outputs2, bins=GRID_NUM, range=hist_range)
         return HistPmf(hist1), HistPmf(hist2)
     elif isinstance(one_sample, np.ndarray | list):
-        max_vals = np.max(samples, axis=0) # それぞれの列の最大値が格納される
-        min_vals = np.min(samples, axis=0)
-        hist_range = []
-        for i in range(len(max_vals)):
-            hist_range.append((min_vals[i], max_vals[i]))
+        # 最小値と最大値を求めるためのサンプリング
+        test_samples = 200
+        samples = np.empty(test_samples, dtype=object)
+        float_max = -np.inf
+        float_min = np.inf
+        type_set = set()
+        for i in range(test_samples):
+            sampling_val_memo = {}
+            samples[i] = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)[0]
+            for scalar  in samples[i]:
+                if np.isnan(scalar):
+                    type_set.add(np.nan)
+                elif isinstance(scalar, bool):
+                    type_set.add(bool)
+                elif isinstance(scalar, int | np.int64):
+                    type_set.add(int)
+                elif isinstance(scalar, float | np.float64):
+                    float_max = max(float_max, scalar)
+                    float_min = min(float_min, scalar)
+                    type_set.add(float)
+                elif isinstance(scalar, np.nan):
+                    type_set.add(np.nan)
+                else:
+                    raise ValueError("Invalid type")
+
+        # floatを含む場合は、グリッドを作成する
+        float_grid, float_grid_labels = [], []
+        if float in type_set:
+            float_grid = np.linspace(float_min, float_max, GRID_NUM)
+            float_grid_labels = [f"[{float_grid[i]:.2f}, {float_grid[i + 1]:.2f})" for i in range(len(float_grid) - 1)]
+
         outputs1, outputs2 = [], []
         for _ in range(SAMPLING_NUM):
             sampling_val_memo = {}
             output1, output2 = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)
-            outputs1.append(output1)
-            outputs2.append(output2)
-        outputs1 = np.asarray(outputs1)
-        outputs2 = np.asarray(outputs2)
-        hist1, edges1 = np.histogramdd(outputs1, bins=GRID_NUM, range=hist_range)
-        hist2, edges2 = np.histogramdd(outputs2, bins=GRID_NUM, range=hist_range)
-        return HistPmf(hist1), HistPmf(hist2)
+            processed_output1, processed_output2 = [], []
+            for val in output1:
+                if np.isnan(val):
+                    processed_output1.append(val)
+                elif isinstance(val, float):
+                    bin_index = np.digitize(val, float_grid, right=False) - 1
+                    bin_index = max(0, min(bin_index, len(float_grid_labels) - 1))
+                    processed_output1.append(float_grid_labels[bin_index])
+                else:
+                    processed_output1.append(val)
+            for val in output2:
+                # np.nanはnp.float型であるため、np.nanを含む場合はこちらで処理する
+                if np.isnan(val):
+                    processed_output2.append(val)
+                elif isinstance(val, float):
+                    bin_index = np.digitize(val, float_grid, right=False) - 1
+                    bin_index = max(0, min(bin_index, len(float_grid_labels) - 1))
+                    processed_output2.append(float_grid_labels[bin_index])
+                else:
+                    processed_output2.append(val)
+            outputs1.append(tuple(processed_output1))
+            outputs2.append(tuple(processed_output2))
+        counts_dict1 = Counter(outputs1)
+        counts_dict2 = Counter(outputs2)
+        commonkeys = set(counts_dict1.keys()) & set(counts_dict2.keys())
+        filtered_counts_dict1 = {k: counts_dict1[k] for k in commonkeys}
+        filtered_counts_dict2 = {k: counts_dict2[k] for k in commonkeys}
+        return HistPmf(np.array(list(filtered_counts_dict1.values()))), HistPmf(np.array(list(filtered_counts_dict2.values())))
     else:
         raise ValueError("output_type is invalid")
 
