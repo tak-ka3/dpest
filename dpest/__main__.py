@@ -24,7 +24,7 @@ SAMPLING_NUM = 100000
 """
 サンプリングによって小数型の出力の確率を求める際に、確率変数の値を区切るグリッドの数
 """
-GRID_NUM = 5
+GRID_NUM = 20
 
 
 """
@@ -161,7 +161,7 @@ class Pmf:
         """
         # ArrayItemに代入する
         # TODO: infか1かの隣接性はプログラマが指定できるようにする
-        input_list = input_generator("inf", 5)
+        input_list = input_generator("inf", 10)
         for input_set in input_list:
             calc_graph1, calc_graph2 = self._insert_input(input_set)
             calc_graph1, calc_graph2 = self._resolve_dependency(calc_graph1, calc_graph2, input_set)
@@ -757,6 +757,9 @@ class InputArray:
     def __iter__(self):
         array_iter = [ArrayItem(i, self) for i in range(self.size)]
         return iter(array_iter)
+    
+    def __getitem__(self, ind):
+        return ArrayItem(ind, self)
 
 
 class InputScalarToArrayItem:

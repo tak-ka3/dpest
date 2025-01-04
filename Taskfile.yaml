@@ -73,6 +73,11 @@ tasks:
     cmds:
       - echo "correct_eps=inf"
       - python -m test.alg.svt6
+  num_svt:
+    desc: algorithm NumericalSVT
+    cmds:
+      - echo "correct_eps=0.1"
+      - python -m test.alg.num_svt
   laplace_parallel:
     desc: algorithm=LaplaceParallel, adj=1
     cmds:
