@@ -4,9 +4,12 @@ eps = 0.1
 eps1 = eps/2
 sens = 1
 
-Arr = InputArray(10)
+INPUT_ARRAY_SIZE = 10
 th = 1
 Lap = Laplace(th, sens/eps1)
-q1, q2, q3, q4, q5, q6, q7, q8, q9, q10 = raw_extract(InputArray(10))
-Y = ToArray(Comp(Lap, q1), Comp(Lap, q2), Comp(Lap, q3), Comp(Lap, q4), Comp(Lap, q5), Comp(Lap, q6), Comp(Lap, q7), Comp(Lap, q8), Comp(Lap, q9), Comp(Lap, q10))
+Arr = list(raw_extract(InputArray(INPUT_ARRAY_SIZE)))
+result = []
+for i in range(INPUT_ARRAY_SIZE):
+    result.append(Comp(Lap, Arr[i]))
+Y = ToArray(*result)
 eps = Y.eps_est()
