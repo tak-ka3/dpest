@@ -3,3 +3,4 @@ dpest/__pycache__/
 utils/__pycache__/
 test/alg/__pycache__/
 test/__pycache__/
+dpest.egg-info/
