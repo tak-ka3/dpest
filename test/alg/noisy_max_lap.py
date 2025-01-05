@@ -1,6 +1,6 @@
 from dpest.operation import Max
 from dpest.input import InputArray
-from dpest import utils
+from dpest.utils import laplace_extract
 from dpest.func import eps_est
 
 eps = 0.1
