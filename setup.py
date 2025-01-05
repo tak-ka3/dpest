@@ -5,7 +5,7 @@ setup(
     version="0.1.0",                    # バージョン
     description="dpest",  # 説明文
     author="tak-ka3",                 # 作者名
-    url="https://github.com/yourusername/my_library",  # プロジェクトのURL
+    url="https://github.com/tak-ka3/dpest",  # プロジェクトのURL
     packages=find_packages(),           # パッケージを自動検出
     install_requires=[                  # 依存パッケージ
         # 必要に応じて依存ライブラリを記載
@@ -17,5 +17,5 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 3",
     ],
-    python_requires=">=3.6",            # 対応するPythonバージョン
+    python_requires=">=3.11",            # 対応するPythonバージョン
 )
