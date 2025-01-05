@@ -7,6 +7,7 @@ from scipy import interpolate
 from scipy.integrate import quad
 from itertools import product, combinations
 from collections import Counter
+from sklearn.neighbors import KernelDensity
 from dpest.input_generator import input_generator
 from dpest.search import search_scalar_all, search_hist
 from utils.pr_calc import nonuniform_convolution
@@ -24,7 +25,7 @@ SAMPLING_NUM = 100000
 """
 サンプリングによって小数型の出力の確率を求める際に、確率変数の値を区切るグリッドの数
 """
-GRID_NUM = 20
+GRID_NUM = 10
 
 
 """
@@ -161,7 +162,7 @@ class Pmf:
         """
         # ArrayItemに代入する
         # TODO: infか1かの隣接性はプログラマが指定できるようにする
-        input_list = input_generator("inf", 10)
+        input_list = input_generator("inf", 5)
         for input_set in input_list:
             calc_graph1, calc_graph2 = self._insert_input(input_set)
             calc_graph1, calc_graph2 = self._resolve_dependency(calc_graph1, calc_graph2, input_set)
@@ -276,6 +277,25 @@ def calc_pdf_by_sampling(var1, var2):
             float_grid_labels = [f"[{float_grid[i]:.2f}, {float_grid[i + 1]:.2f})" for i in range(len(float_grid) - 1)]
 
         outputs1, outputs2 = [], []
+        # for _ in range(SAMPLING_NUM):
+        #     sampling_val_memo = {}
+        #     output1, output2 = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)
+        #     outputs1.append(tuple(output1))
+        #     outputs2.append(tuple(output2))
+        # kde1 = KernelDensity(kernel='gaussian', bandwidth=0.75)
+        # kde2 = KernelDensity(kernel='gaussian', bandwidth=0.75)
+        # kde1.fit(np.array(outputs1))
+        # kde2.fit(np.array(outputs2))
+        # size = len(one_sample)
+        # grid_range = [np.linspace(float_min, float_max, GRID_NUM) for _ in range(size)]
+        # grid = np.array(np.meshgrid(*grid_range)).T.reshape(-1, size)
+        # print("grid: ", grid)
+        # density1 = np.exp(kde1.score_samples(grid))
+        # print("density1: ", density1)
+        # density2 = np.exp(kde2.score_samples(grid))
+        # print("density2: ", density2)
+        # return HistPmf(np.array(density1)), HistPmf(np.array(density2))
+
         for _ in range(SAMPLING_NUM):
             sampling_val_memo = {}
             output1, output2 = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)
@@ -836,29 +856,3 @@ def raw_extract(arr: InputArray):
 """
 def laplace_map():
     pass
-
-"""
-プログラマのコード
-"""
-if __name__ == "__main__":
-    eps = 0.1
-    sens = 1
-    th =1
-    # 配列要素それぞれにラプラスノイズを加えて取り出す
-    Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(InputArray(5), sens/eps)
-    rappor_f = 0.75
-    val_to_prob = {0: 0.5*rappor_f, 1: 0.5*rappor_f, 2: 1 - rappor_f}
-    pmf1, pmf2, pmf3, pmf4, pmf5 = Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob)
-    fil1, fil2, fil3, fil4, fil5 = Comp(pmf1, Lap1), Comp(pmf2, Lap2), Comp(pmf3, Lap3), Comp(pmf4, Lap4), Comp(pmf5, Lap5)
-    Lap = Laplace(th, 1/eps)
-    # q1, q2, q3, q4, q5 = raw_extract(InputArray(5))
-    # Y = ToArray(Comp(Lap1, Lap), Comp(Lap2, Lap), Comp(Lap3, Lap), Comp(Lap4, Lap), Comp(Lap5, Lap))
-    Y = ToArray(Lap1, Lap2, Lap3, Lap4, Lap5)
-    # このアルゴリズムで推定されたεの値が出力される
-
-
-    print("------")
-    eps = Y.eps_est()
-    print("----------")
-
-""""""
