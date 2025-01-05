@@ -5,7 +5,7 @@ from dpest.func import eps_est
 
 eps = 0.1
 sens = 1
-Exp1, Exp2, Exp3, Exp4, Exp5 = exp_extract(InputArray(5), sens/eps)
+Exp1, Exp2, Exp3, Exp4, Exp5 = exp_extract(InputArray(5, adj="inf"), sens/eps)
 
 Y = Max(Max(Max(Max(Exp1, Exp2), Exp3), Exp4), Exp5)
 eps = eps_est(Y)

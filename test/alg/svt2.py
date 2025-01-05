@@ -14,9 +14,8 @@ th = 1
 
 INPUT_ARR_SIZE = 10
 
-Arr = InputArray(INPUT_ARR_SIZE)
 Lap = Laplace(th, sens*c/eps1)
-LapArr = list(laplace_extract(InputArray(INPUT_ARR_SIZE), sens*c/(eps2/2)))
+LapArr = list(laplace_extract(InputArray(INPUT_ARR_SIZE, adj="inf"), sens*c/(eps2/2)))
 result = []
 cnt = 0 # 閾値を超えた数
 cnt_over = 0 # breakの真偽値

@@ -5,7 +5,7 @@ from dpest.func import eps_est
 
 eps = 0.1
 sens = 1
-Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(InputArray(5), sens/(eps/2))
+Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(InputArray(5, adj="inf"), sens/(eps/2))
 LapArr = [Lap1, Lap2, Lap3, Lap4, Lap5]
 
 max_val = LapArr[0]

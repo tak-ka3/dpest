@@ -5,7 +5,7 @@ from dpest.func import eps_est
 
 eps = 0.1
 sens = 1
-Exp1, Exp2, Exp3, Exp4, Exp5 = exp_extract(InputArray(5), sens/(eps/2))
+Exp1, Exp2, Exp3, Exp4, Exp5 = exp_extract(InputArray(5, adj="inf"), sens/(eps/2))
 ExpArr = [Exp1, Exp2, Exp3, Exp4, Exp5]
 
 max_val = ExpArr[0]

@@ -12,7 +12,7 @@ sens = 1
 INPUT_ARRAY_SIZE = 10
 th = 1
 Lap = Laplace(th, sens/eps1)
-Arr = list(raw_extract(InputArray(INPUT_ARRAY_SIZE)))
+Arr = list(raw_extract(InputArray(INPUT_ARRAY_SIZE, adj="inf")))
 result = []
 for i in range(INPUT_ARRAY_SIZE):
     result.append(Comp(Lap, Arr[i]))

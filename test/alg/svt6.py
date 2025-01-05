@@ -11,7 +11,7 @@ sens = 1
 th =1
 
 INPUT_ARRAY_SIZE = 10
-LapArr = list(laplace_extract(InputArray(INPUT_ARRAY_SIZE), sens/eps2))
+LapArr = list(laplace_extract(InputArray(INPUT_ARRAY_SIZE, adj="inf"), sens/eps2))
 Lap = Laplace(th, sens/eps1)
 result = []
 for i in range(INPUT_ARRAY_SIZE):

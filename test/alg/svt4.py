@@ -16,7 +16,7 @@ INPUT_ARR_SIZE = 10
 
 Arr = InputArray(INPUT_ARR_SIZE)
 Lap = Laplace(th, sens/eps1)
-LapArr = list(laplace_extract(InputArray(INPUT_ARR_SIZE), sens*c/eps2))
+LapArr = list(laplace_extract(InputArray(INPUT_ARR_SIZE, adj="inf"), sens*c/eps2))
 
 result = []
 cnt = 0 # 閾値を超えた数
