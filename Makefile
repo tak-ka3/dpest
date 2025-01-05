@@ -1,11 +1,14 @@
-mak.PHONY: all $(TASKS)
+.PHONY: all $(TASKS) $(EXP_TASKS)
 
 # タスクリスト
 TASKS := noisy_sum prefix_sum noisy_max_lap noisy_max_exp noisy_arg_max_lap \
          noisy_arg_max_exp svt1 svt2 svt3 svt4 svt5 svt6 num_svt \
          laplace_parallel onetime_rappor rappor truncated_geometric
 
-# すべてのタスクを実行
+# EXPタスクリストを生成
+EXP_TASKS := $(addprefix exp_, $(TASKS))
+
+# すべての通常タスクを実行
 all: $(TASKS)
 
 # 変数で eps を管理
@@ -64,3 +67,8 @@ adj_truncated_geometric := 1
 %:
 	@echo "correct_eps=$(correct_eps_$@), adj=$(adj_$@)"
 	python -m test.alg.$@
+
+# EXPタスクのルール
+exp_%:
+	@echo "Running experiment for $*"
+	python experiment/run_alg.py $*
