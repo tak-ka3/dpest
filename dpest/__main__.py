@@ -836,29 +836,3 @@ def raw_extract(arr: InputArray):
 """
 def laplace_map():
     pass
-
-"""
-プログラマのコード
-"""
-if __name__ == "__main__":
-    eps = 0.1
-    sens = 1
-    th =1
-    # 配列要素それぞれにラプラスノイズを加えて取り出す
-    Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(InputArray(5), sens/eps)
-    rappor_f = 0.75
-    val_to_prob = {0: 0.5*rappor_f, 1: 0.5*rappor_f, 2: 1 - rappor_f}
-    pmf1, pmf2, pmf3, pmf4, pmf5 = Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob), Pmf(val_to_prob=val_to_prob)
-    fil1, fil2, fil3, fil4, fil5 = Comp(pmf1, Lap1), Comp(pmf2, Lap2), Comp(pmf3, Lap3), Comp(pmf4, Lap4), Comp(pmf5, Lap5)
-    Lap = Laplace(th, 1/eps)
-    # q1, q2, q3, q4, q5 = raw_extract(InputArray(5))
-    # Y = ToArray(Comp(Lap1, Lap), Comp(Lap2, Lap), Comp(Lap3, Lap), Comp(Lap4, Lap), Comp(Lap5, Lap))
-    Y = ToArray(Lap1, Lap2, Lap3, Lap4, Lap5)
-    # このアルゴリズムで推定されたεの値が出力される
-
-
-    print("------")
-    eps = Y.eps_est()
-    print("----------")
-
-""""""
