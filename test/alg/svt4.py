@@ -1,5 +1,9 @@
 import numpy as np
-from dpest.__main__ import laplace_extract, InputArray, ToArray, Laplace, raw_extract, Case, Add, Br
+from dpest.distrib import Laplace
+from dpest.input import InputArray
+from dpest.operation import Br, Case, Add, ToArray
+from dpest.utils import laplace_extract
+from dpest.func import eps_est
 
 eps = 0.1
 sens = 1
@@ -28,4 +32,4 @@ for i in range(INPUT_ARR_SIZE):
     cnt_over = Br(cnt, c, 1, 0)
 
 Y = ToArray(*result)
-eps = Y.eps_est()
+eps = eps_est(Y)

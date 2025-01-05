@@ -1,6 +1,9 @@
 import numpy as np
 import mmh3
-from dpest.__main__ import RawPmf, ToArray, Case, InputScalarToArray
+from dpest.distrib import RawPmf
+from dpest.input import InputScalarToArray
+from dpest.operation import ToArray, Case
+from dpest.func import eps_est
 
 def populate_bloom_filter(val):
     filter_size = 20
@@ -58,4 +61,4 @@ Y = ToArray(
     Case(Case(pmf19, case_dict_list[18]), {0: pmf19p, 1: pmf19q}), 
     Case(Case(pmf20, case_dict_list[19]), {0: pmf20p, 1: pmf20q})
 )
-eps = Y.eps_est()
+eps = eps_est(Y)

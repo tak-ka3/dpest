@@ -1,4 +1,8 @@
-from dpest.__main__ import laplace_extract, InputArray, ToArray, Laplace, Comp
+from dpest.distrib import Laplace
+from dpest.input import InputArray
+from dpest.operation import Comp, ToArray
+from dpest.utils import laplace_extract
+from dpest.func import eps_est
 
 eps = 0.1
 eps1 = eps/2
@@ -13,4 +17,4 @@ result = []
 for i in range(INPUT_ARRAY_SIZE):
     result.append(Comp(LapArr[i], Lap))
 Y = ToArray(*result)
-eps = Y.eps_est()
+eps = eps_est(Y)

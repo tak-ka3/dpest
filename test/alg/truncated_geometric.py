@@ -1,6 +1,9 @@
 import math
 import numpy as np
-from dpest.__main__ import Uni, Br, InputScalarToArray
+from dpest.distrib import Uni
+from dpest.operation import Br
+from dpest.input import InputScalarToArray
+from dpest.func import eps_est
 
 eps = 0.1
 n = 5
@@ -46,4 +49,4 @@ z = 0
 for idx in reversed(range(n+1)):
     z = Br(u, Arr[idx], z, idx)
 Y = z
-eps = Y.eps_est()
+eps = eps_est(Y)

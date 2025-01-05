@@ -1,4 +1,7 @@
-from dpest.__main__ import exp_extract, InputArray, Max, Br
+from dpest.operation import Br, Max
+from dpest.input import InputArray
+from dpest.utils import exp_extract
+from dpest.func import eps_est
 
 eps = 0.1
 sens = 1
@@ -11,4 +14,4 @@ for i in range(5):
     max_ind = Br(max_val, ExpArr[i], max_ind, i)
     max_val = Max(max_val, ExpArr[i])
 Y = max_ind
-eps = Y.eps_est()
+eps = eps_est(Y)
