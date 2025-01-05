@@ -2,9 +2,15 @@ import copy
 import numpy as np
 from . import Pmf
 from dpest.input_generator import input_generator
-from dpest.run_graph import insert_input_rec, resolve_dependency_rec, calc_pdf_rec
+from dpest.run_graph import input_analysis_rec, insert_input_rec, resolve_dependency_rec, calc_pdf_rec
 from dpest.search import search_scalar_all, search_hist
 from dpest.distrib import HistPmf
+
+def input_analysis(Y: Pmf):
+    """
+    計算グラフを走査して、入力の配列のサイズ、隣接性の定義を取得
+    """
+    return input_analysis_rec(Y, 0, "")
 
 def insert_input(Y: Pmf, input_comb: tuple):
     """
@@ -42,7 +48,10 @@ def eps_est(Y: Pmf):
     """
     # ArrayItemに代入する
     # TODO: infか1かの隣接性はプログラマが指定できるようにする
-    input_list = input_generator("inf", 10)
+
+    # 計算グラフをたどり、入力の配列のサイズ、隣接性の定義を取得
+    input_size, adj = input_analysis(Y)
+    input_list = input_generator(adj, input_size)
     max_eps = 0
     for input_set in input_list:
         calc_graph1, calc_graph2 = insert_input(Y, input_set)

@@ -6,6 +6,23 @@ from dpest.distrib import Laplace, Exp, ArrayItem, HistPmf, RawPmf, Uni
 from dpest.input import InputScalarToArrayItem
 from dpest.config import *
 
+def input_analysis_rec(var, size, adj):
+    if isinstance(var, Uni | int | float | np.float64 | np.int64 | int | str):
+        return size, adj
+    if isinstance(var, ArrayItem):
+        if size == 0:
+            size = var.arr_size
+        if adj == "":
+            adj = var.adj
+        return size, adj
+    if isinstance(var, InputScalarToArrayItem):
+        if size == 0:
+            size = 1
+        return size, adj
+    for child in var.child:
+        size, adj = input_analysis_rec(child, size, adj)
+    return size, adj
+
 def insert_input_rec(var1, var2, input_val_list1, input_val_list2):
     if isinstance(var1, Laplace | Exp):
         assert len(var1.child) == 1

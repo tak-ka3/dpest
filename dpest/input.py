@@ -6,6 +6,8 @@ class ArrayItem(Pmf):
         super().__init__()
         self.ind = ind
         self.parent = parent
+        self.arr_size = parent.size
+        self.adj = parent.adj
         self.name = f"ArrayItem({ind})"
 
 class InputArray:
@@ -13,10 +15,11 @@ class InputArray:
     シンボリックな配列の値のためのクラス
     プログラマはこれを用いてコードを書くが実際の値はこちらがε推定の時に代入する
     """
-    def __init__(self, size):
+    def __init__(self, size, adj):
         self.child = []
         self.size = size
         self.name = "InputArray"
+        self.adj = adj
     
     def __iter__(self):
         array_iter = [ArrayItem(i, self) for i in range(self.size)]

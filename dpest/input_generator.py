@@ -3,6 +3,10 @@ def input_generator(adj, size=5):
     テストケースの生成
     """
     input_list = []
+    if size == 1:
+        input_list.append(([1], [2]))
+        input_list.append(([1], [0]))
+        return input_list
     if size == 5:
         input_list.append(([1, 1, 1, 1, 1], [2, 1, 1, 1, 1]))
         input_list.append(([1, 1, 1, 1, 1], [0, 1, 1, 1, 1]))
