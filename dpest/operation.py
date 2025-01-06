@@ -36,7 +36,7 @@ class Add(Pmf):
         """
         引数から出力の確率密度を厳密に計算する
         """
-        if isinstance(child[1], Union(int, float)):
+        if isinstance(child[1], (int, float)):
             val1, pdf1 = list(child[0].val_to_prob.keys()), list(child[0].val_to_prob.values())
             output_val1 = [v + child[1] for v in val1]
             return RawPmf(dict(zip(output_val1, pdf1)))
@@ -166,7 +166,7 @@ class Comp(Pmf):
         child1, child2 = children
 
         # 片方がArrayItemという定数
-        if isinstance(child1, Union[int, float]) or isinstance(child2, (int, float)):
+        if isinstance(child1, (int, float)) or isinstance(child2, (int, float)):
             const, pmf = child1, child2 if isinstance(child1, (int, float)) else child2, child1
             val = list(pmf.val_to_prob.keys())
             pdf = list(pmf.val_to_prob.values())
