@@ -25,7 +25,9 @@ if __name__ == "__main__":
     alg_name = sys.argv[1]
     command = ["make", alg_name]
 
+    start_time = datetime.now()
     result = subprocess.run(command, capture_output=True, text=True)
+    end_time = datetime.now()
     expr_result = result.stdout
 
     # コマンドの実行結果がエラーの場合、エラーメッセージを表示して終了
@@ -42,6 +44,9 @@ if __name__ == "__main__":
     target_file = f"{DP_EST_DIR}/dpest/config.py"
     output_file = f"{DP_EST_DIR}/experiment/{alg_name}/{formatted_now}.md"
 
+    with open(output_file, "w") as outfile:
+        outfile.write(f"# {alg_name}\n")
+        outfile.write(f"## Execution Time\n{end_time - start_time} sec\n")
     # パラメタを抽出してファイルに書き込む
     extract_parameters(target_file, output_file)
 
