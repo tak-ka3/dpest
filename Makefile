@@ -3,7 +3,8 @@
 # タスクリスト
 TASKS := noisy_sum prefix_sum noisy_max_lap noisy_max_exp noisy_arg_max_lap \
          noisy_arg_max_exp svt1 svt2 svt3 svt4 svt5 svt6 svt34_parallel num_svt \
-         laplace_parallel onetime_rappor rappor truncated_geometric
+         noisy_hist1 noisy_hist2 laplace_parallel \
+		 onetime_rappor rappor truncated_geometric
 
 # EXPタスクリストを生成
 EXP_TASKS := $(addprefix exp_, $(TASKS))
@@ -55,6 +56,12 @@ adj_svt6 := inf
 
 correct_eps_num_svt := 0.1
 adj_num_svt := inf
+
+correct_eps_noisy_hist1 := 0.1
+adj_noisy_hist1 := 1
+
+correct_eps_noisy_hist2 := 10
+adj_noisy_hist2 := 1
 
 correct_eps_laplace_parallel := 0.1
 adj_laplace_parallel := 1

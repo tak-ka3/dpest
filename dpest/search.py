@@ -22,6 +22,8 @@ def search_scalar_all(x: np.ndarray, y1: np.ndarray, y2: np.ndarray) -> np.float
     """
     max_ratio = 0
     for i in range(x.shape[0]):
+        if y1[i] == 0 or y2[i] == 0:
+            continue
         ratio = y1[i] / y2[i] if y1[i] > y2[i] else y2[i] / y1[i]
         if max_ratio < ratio:
             max_ratio = ratio
