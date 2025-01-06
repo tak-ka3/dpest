@@ -181,7 +181,7 @@ def calc_pdf_by_sampling(var1, var2):
                     type_set.add(bool)
                 elif isinstance(scalar, (int, np.int64)):
                     type_set.add(int)
-                elif isinstance(scalar, float | np.float64):
+                elif isinstance(scalar, (float, np.float64)):
                     float_max = max(float_max, scalar)
                     float_min = min(float_min, scalar)
                     type_set.add(float)
