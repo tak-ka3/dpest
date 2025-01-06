@@ -13,7 +13,7 @@ $ make exp_{alg_name}
 - noisy_max_lap noisy_max_exp
 - noisy_arg_max_lap noisy_arg_max_exp
 - prefix_sum
-- svt1 svt2 svt3 svt4 svt5 svt6 
+- svt1 svt2 svt3 svt4 svt5 svt6 svt34_parallel
 - num_svt
 - laplace_parallel
 - onetime_rappor rappor
