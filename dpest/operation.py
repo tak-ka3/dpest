@@ -8,20 +8,21 @@ from utils.pr_calc import nonuniform_convolution
 from . import Pmf
 from dpest.config import *
 from dpest.distrib import RawPmf
+from typing import Union
 
 class Add(Pmf):
     """
     二つの確率変数同士を足すクラス
     """
     def __init__(self, var1: Pmf, var2: Pmf):
-        assert isinstance(var1, Pmf) & isinstance(var2, Pmf | int | float)
+        assert isinstance(var1, Pmf) & isinstance(var2, (Pmf, int, float))
         super().__init__()
         self.child = [var1, var2]
         if isinstance(var2, Pmf):
             self.name = f"Add({var1.name}, {var2.name})"
             self.is_args_depend = len(set(var1.depend_vars) & set(var2.depend_vars)) > 0
             self.depend_vars = list(set(var1.depend_vars) | set(var2.depend_vars))
-        elif isinstance(var2, int | float):
+        elif isinstance(var2, (int, float)):
             self.name = f"Add({var1.name}, {var2})"
             self.is_args_depend = False
             self.depend_vars = var1.depend_vars
@@ -35,7 +36,7 @@ class Add(Pmf):
         """
         引数から出力の確率密度を厳密に計算する
         """
-        if isinstance(child[1], int | float):
+        if isinstance(child[1], (int, float)):
             val1, pdf1 = list(child[0].val_to_prob.keys()), list(child[0].val_to_prob.values())
             output_val1 = [v + child[1] for v in val1]
             return RawPmf(dict(zip(output_val1, pdf1)))
@@ -115,7 +116,7 @@ class Br(Pmf):
     二つの確率変数または、一つの確率変数と定数を引数に取り、その大小関係に応じて、確率変数や定数を返す
     Compクラスを包含するクラス
     """
-    def __init__(self, input_var1: Pmf, input_var2: Pmf | int | float, output_var1: Pmf | int | float, output_var2: Pmf | int | float):
+    def __init__(self, input_var1: Pmf, input_var2: Union[Pmf, int, float], output_var1: Union[Pmf, int, float], output_var2: Union[Pmf, int, float]):
         # assert isinstance(input_var1, Pmf) & isinstance(input_var2, Pmf | int | float)
         super().__init__()
         self.child = [input_var1, input_var2, output_var1, output_var2]
@@ -134,7 +135,7 @@ class Br(Pmf):
     def calc_pdf(self, children):
         assert len(children) == 4
         input_var1, input_var2, output_var1, output_var2 = children
-        assert isinstance(input_var1, Pmf) & isinstance(input_var2, Pmf | int | float) & isinstance(output_var1, Pmf | int | float) & isinstance(output_var2, Pmf | int | float)
+        assert isinstance(input_var1, Pmf) & isinstance(input_var2, (Pmf, int, float)) & isinstance(output_var1, (Pmf, int, float)) & isinstance(output_var2, (Pmf, int, float))
         raise NotImplementedError # Brを用いて解析的に計算するアルゴリズムがないので未実装
     
     def func(self, args: list):
@@ -152,8 +153,8 @@ class Comp(Pmf):
     引数に定数を取るとしたら、第二引数に定数を取るようにする
     e.g. Comp(pmf, const) or Comp(pmf1, pmf2)
     """
-    def __init__(self, var1: Pmf, var2: Pmf | int | float):
-        assert isinstance(var1, Pmf) & isinstance(var2, Pmf | int | float)
+    def __init__(self, var1: Pmf, var2: Union[Pmf, int, float]):
+        assert isinstance(var1, Pmf) & isinstance(var2, (Pmf, int, float))
         super().__init__()
         self.child = [var1, var2]
         self.name = f"Comp({var1.name}, {var2.name})"
@@ -165,8 +166,8 @@ class Comp(Pmf):
         child1, child2 = children
 
         # 片方がArrayItemという定数
-        if isinstance(child1, int | float) or isinstance(child2, int | float):
-            const, pmf = child1, child2 if isinstance(child1, int | float) else child2, child1
+        if isinstance(child1, (int, float)) or isinstance(child2, (int, float)):
+            const, pmf = child1, child2 if isinstance(child1, (int, float)) else child2, child1
             val = list(pmf.val_to_prob.keys())
             pdf = list(pmf.val_to_prob.values())
             f = interpolate.CubicSpline(val, pdf, bc_type='natural', extrapolate=True)
@@ -202,15 +203,15 @@ class Comp(Pmf):
 確率変数を1つ引数に取り、特定の定数に等しい場合に、特定の値や確率変数を返す
 """
 class Case(Pmf):
-    def __new__(cls, var: Pmf | int | float = None, case_dict: dict = None):
-        if isinstance(var, int | float):
+    def __new__(cls, var: Union[Pmf, int, float] = None, case_dict: dict = None):
+        if isinstance(var, (int, float)):
             if case_dict.get(var) is None:
                 if case_dict.get("otherwise") is None:
                     raise ValueError("Invalid Case")
                 return case_dict["otherwise"]
             return case_dict[var]
         return super().__new__(cls)
-    def __init__(self, var: Pmf | int | float, case_dict: dict):
+    def __init__(self, var: Union[Pmf, int, float], case_dict: dict):
         assert isinstance(var, Pmf)
         super().__init__()
         case_dict_instance = CaseDict(case_dict)
@@ -247,12 +248,12 @@ class Case(Pmf):
                     assert list(self.child[1].case_dict.keys())[-1] == "otherwise"
                     case_val_prob = 1 - sum(output_dict.values())
                 else:
-                    assert isinstance(case_val, int | float | np.int64 | np.float64)
+                    assert isinstance(case_val, (int, float, np.int64, np.float64))
                     case_val_prob = child.val_to_prob[case_val]
                 sum_case_val_prob += case_val_prob
                 assert sum_case_val_prob <= 1
 
-                if isinstance(case_var, int | float):
+                if isinstance(case_var, (int, float)):
                     if output_dict.get(case_var) is None:
                         output_dict[case_var] = case_val_prob
                     else:
@@ -277,7 +278,7 @@ class Case(Pmf):
         assert len(args) == 2
         val = args[0]
         case_dict = args[1]
-        assert isinstance(val, int | float | np.int64 | np.float64 ) & isinstance(case_dict, dict)
+        assert isinstance(val, (int, float, np.int64, np.float64)) & isinstance(case_dict, dict)
         if case_dict.get(val) is None:
             if case_dict.get("otherwise") is None:
                 raise ValueError("Invalid Case")

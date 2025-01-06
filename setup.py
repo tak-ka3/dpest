@@ -17,5 +17,5 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 3",
     ],
-    python_requires=">=3.11",            # 対応するPythonバージョン
+    python_requires=">=3.7",            # 対応するPythonバージョン
 )
