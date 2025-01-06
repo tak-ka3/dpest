@@ -11,6 +11,8 @@ EXP_TASKS := $(addprefix exp_, $(TASKS))
 # すべての通常タスクを実行
 all: $(TASKS)
 
+all_exp: $(EXP_TASKS)
+
 # 変数で eps を管理
 correct_eps_noisy_sum := 0.1
 adj_noisy_sum := inf

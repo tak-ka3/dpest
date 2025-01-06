@@ -3,6 +3,7 @@ import numpy as np
 from . import Pmf
 from dpest.config import *
 from dpest.input import ArrayItem
+from typing import Union
 
 class HistPmf(Pmf):
     # histは二次元配列で、要素があるところに1が立つ
@@ -15,7 +16,7 @@ class RawPmf(Pmf):
         self.name = "RawPmf"
 
 class Laplace(Pmf):
-    def __init__(self, mu: float | ArrayItem, b: float):
+    def __init__(self, mu: Union[float, ArrayItem], b: float):
         super().__init__()
         self.child = [mu]
         self.b = b
@@ -36,7 +37,7 @@ class Laplace(Pmf):
         
 
 class Exp(Pmf):
-    def __init__(self, mu: float | ArrayItem, b: float):
+    def __init__(self, mu: Union[float, ArrayItem], b: float):
         super().__init__()
         self.child = [mu]
         self.b = b

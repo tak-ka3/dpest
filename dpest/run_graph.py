@@ -5,9 +5,10 @@ from dpest.operation import Case, Br
 from dpest.distrib import Laplace, Exp, ArrayItem, HistPmf, RawPmf, Uni
 from dpest.input import InputScalarToArrayItem
 from dpest.config import *
+from typing import Union
 
 def input_analysis_rec(var, size, adj):
-    if isinstance(var, Uni | int | float | np.float64 | np.int64 | int | str):
+    if isinstance(var, (Uni, int, float, np.float64, np.int64, int, str)):
         return size, adj
     if isinstance(var, ArrayItem):
         if size == 0:
@@ -24,9 +25,9 @@ def input_analysis_rec(var, size, adj):
     return size, adj
 
 def insert_input_rec(var1, var2, input_val_list1, input_val_list2):
-    if isinstance(var1, Laplace | Exp):
+    if isinstance(var1, (Laplace, Exp)):
         assert len(var1.child) == 1
-        if isinstance(var1.child[0], int | float):
+        if isinstance(var1.child[0], (int, float)):
             return var1, var2
         elif isinstance(var1.child[0], ArrayItem):
             var1.child[0] = input_val_list1[var1.child[0].ind]
@@ -79,7 +80,7 @@ def insert_input_rec(var1, var2, input_val_list1, input_val_list2):
     return var1, var2
 
 def resolve_dependency_rec(var1, var2): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
-    if isinstance(var1, Laplace | Exp | RawPmf | HistPmf | Uni | np.float64 | np.int64 | int | str):
+    if isinstance(var1, (Laplace, Exp, RawPmf, HistPmf, Uni, np.float64, np.int64, int, str)):
         return var1, var2
     if var1.is_args_depend:
         # ここでサンプリングにより確率密度を計算する
@@ -95,7 +96,7 @@ def resolve_dependency_rec(var1, var2): # var1とvar2はLaplaceの確率密度�
     return var1, var2
 
 def calc_pdf_rec(var):
-    if isinstance(var, Laplace | Exp | Uni | RawPmf | HistPmf | np.float64 | np.int64 | int):
+    if isinstance(var, (Laplace, Exp, Uni, RawPmf, HistPmf, np.float64, np.int64, int)):
         return var
     output_var = var.calc_pdf([calc_pdf_rec(child) for child in var.child])
     return output_var
@@ -106,12 +107,12 @@ def calc_pdf_by_sampling(var1, var2):
     """
     # sampling_val_memoはサンプリングした値を記録するための辞書
     def _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo: dict): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
-        if isinstance(var1, float | int | np.float64 | np.int64 | str):
+        if isinstance(var1, (float, int, np.float64, np.int64, str)):
             return var1, var2
         elif sampling_val_memo.get(var1) is not None:
             return sampling_val_memo[var1], sampling_val_memo[var2]
-        elif isinstance(var1, Laplace | Exp):
-            if isinstance(var1.child[0], int | float):
+        elif isinstance(var1, (Laplace, Exp)):
+            if isinstance(var1.child[0], (int, float)):
                 lap_sample1, lap_sample2 = var1.sampling(), var2.sampling()
                 sampling_val_memo[var1], sampling_val_memo[var2] = lap_sample1, lap_sample2
                 return lap_sample1, lap_sample2
@@ -135,7 +136,7 @@ def calc_pdf_by_sampling(var1, var2):
     output_type = type(one_sample)
 
     # εを求めるためのサンプリング
-    if isinstance(one_sample, int | np.int64 | float | np.float64):
+    if isinstance(one_sample, (int, np.int64, float, np.float64)):
         # 最小値と最大値を求めるためのサンプリング
         test_samples = 200
         samples = np.empty(test_samples, dtype=output_type)
@@ -153,7 +154,7 @@ def calc_pdf_by_sampling(var1, var2):
         outputs1 = np.asarray(outputs1)
         outputs2 = np.asarray(outputs2)
         # 出力が整数値の場合は、それぞれ整数値ごとにヒストグラムを作成する
-        if isinstance(samples[0], np.int64 | int):
+        if isinstance(samples[0], (np.int64, int)):
             # 整数値ごとのヒストグラムを作る際には、このように+2する必要がある
             hist_range = np.arange(min_vals, max_vals + 2)
             hist1, edges1 = np.histogram(outputs1, bins=hist_range)
@@ -163,7 +164,7 @@ def calc_pdf_by_sampling(var1, var2):
             hist1, edges1 = np.histogram(outputs1, bins=GRID_NUM, range=hist_range)
             hist2, edges2 = np.histogram(outputs2, bins=GRID_NUM, range=hist_range)
         return HistPmf(hist1), HistPmf(hist2)
-    elif isinstance(one_sample, np.ndarray | list):
+    elif isinstance(one_sample, (np.ndarray, list)):
         # 最小値と最大値を求めるためのサンプリング
         test_samples = 200
         samples = np.empty(test_samples, dtype=object)
@@ -178,7 +179,7 @@ def calc_pdf_by_sampling(var1, var2):
                     type_set.add(np.nan)
                 elif isinstance(scalar, bool):
                     type_set.add(bool)
-                elif isinstance(scalar, int | np.int64):
+                elif isinstance(scalar, (int, np.int64)):
                     type_set.add(int)
                 elif isinstance(scalar, float | np.float64):
                     float_max = max(float_max, scalar)
