@@ -3,14 +3,14 @@ from dpest.input import InputArray
 from dpest.utils import exp_extract
 from dpest.func import eps_est
 
+INPUT_ARR_SIZE = 5
 eps = 0.1
 sens = 1
-Exp1, Exp2, Exp3, Exp4, Exp5 = exp_extract(InputArray(5, adj="inf"), sens/(eps/2))
-ExpArr = [Exp1, Exp2, Exp3, Exp4, Exp5]
+ExpArr = list(exp_extract(InputArray(INPUT_ARR_SIZE, adj="inf"), sens/(eps/2)))
 
 max_val = ExpArr[0]
 max_ind = 0
-for i in range(5):
+for i in range(INPUT_ARR_SIZE):
     max_ind = Br(max_val, ExpArr[i], max_ind, i)
     max_val = Max(max_val, ExpArr[i])
 Y = max_ind

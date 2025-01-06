@@ -3,10 +3,14 @@ from dpest.input import InputArray
 from dpest.utils import laplace_extract
 from dpest.func import eps_est
 
+INPUT_ARR_SIZE = 10
 eps = 0.1
 sens = 1
-Lap1, Lap2, Lap3, Lap4, Lap5 = laplace_extract(InputArray(5, adj="inf"), sens/eps)
+LapArr = list(laplace_extract(InputArray(INPUT_ARR_SIZE, adj="inf"), sens/eps))
 
 # 実験結果
-Y = ToArray(Lap1, Add(Lap1, Lap2), Add(Add(Lap1, Lap2), Lap3), Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Add(Add(Add(Add(Lap1, Lap2), Lap3), Lap4), Lap5))
+result = [LapArr[0]]
+for i in range(1, INPUT_ARR_SIZE):
+    result.append(Add(LapArr[i-1], LapArr[i]))
+Y = ToArray(*result)
 eps = eps_est(Y)

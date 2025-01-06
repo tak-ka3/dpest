@@ -163,7 +163,9 @@ def calc_pdf_by_sampling(var1, var2):
             hist_range = (min_vals, max_vals)
             hist1, edges1 = np.histogram(outputs1, bins=GRID_NUM, range=hist_range)
             hist2, edges2 = np.histogram(outputs2, bins=GRID_NUM, range=hist_range)
-        return HistPmf(hist1), HistPmf(hist2)
+        dict_hist1 = {edges1[i]: hist1[i] for i in range(len(hist1))}
+        dict_hist2 = {edges2[i]: hist2[i] for i in range(len(hist2))}
+        return HistPmf(dict_hist1), HistPmf(dict_hist2)
     elif isinstance(one_sample, (np.ndarray, list)):
         # 最小値と最大値を求めるためのサンプリング
         test_samples = 200
@@ -227,6 +229,6 @@ def calc_pdf_by_sampling(var1, var2):
         commonkeys = set(counts_dict1.keys()) & set(counts_dict2.keys())
         filtered_counts_dict1 = {k: counts_dict1[k] for k in commonkeys}
         filtered_counts_dict2 = {k: counts_dict2[k] for k in commonkeys}
-        return HistPmf(np.array(list(filtered_counts_dict1.values()))), HistPmf(np.array(list(filtered_counts_dict2.values())))
+        return HistPmf(filtered_counts_dict1), HistPmf(filtered_counts_dict2)
     else:
         raise ValueError("output_type is invalid")

@@ -14,7 +14,6 @@ th = 1
 
 INPUT_ARR_SIZE = 10
 
-Arr = InputArray(INPUT_ARR_SIZE)
 Lap = Laplace(th, sens/eps1)
 LapArr = list(laplace_extract(InputArray(INPUT_ARR_SIZE, adj="inf"), sens*c/eps2))
 
