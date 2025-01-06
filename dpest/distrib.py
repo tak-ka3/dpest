@@ -7,8 +7,10 @@ from typing import Union
 
 class HistPmf(Pmf):
     # histは二次元配列で、要素があるところに1が立つ
-    def __init__(self, hist):
-        self.hist = hist
+    def __init__(self, hist_dict):
+        self.val_to_prob = hist_dict
+        self.hist = np.array(list(hist_dict.values()))
+        self.name = f"HistPmf({hist_dict})"
 
 class RawPmf(Pmf):
     def __init__(self, val_to_prob=None):

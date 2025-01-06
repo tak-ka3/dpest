@@ -2,7 +2,7 @@
 
 # タスクリスト
 TASKS := noisy_sum prefix_sum noisy_max_lap noisy_max_exp noisy_arg_max_lap \
-         noisy_arg_max_exp svt1 svt2 svt3 svt4 svt5 svt6 num_svt \
+         noisy_arg_max_exp svt1 svt2 svt3 svt4 svt5 svt6 svt34_parallel num_svt \
          laplace_parallel onetime_rappor rappor truncated_geometric
 
 # EXPタスクリストを生成
@@ -38,11 +38,14 @@ adj_svt1 := inf
 correct_eps_svt2 := 0.1
 adj_svt2 := inf
 
-correct_eps_svt3 := 0.1
+correct_eps_svt3 := inf
 adj_svt3 := inf
 
 correct_eps_svt4 := 0.18
 adj_svt4 := inf
+
+correct_eps_svt34_parallel := inf
+adj_svt34_parallel := inf
 
 correct_eps_svt5 := inf
 adj_svt5 := inf
