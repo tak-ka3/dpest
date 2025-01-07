@@ -1,0 +1,1 @@
+LAP_VAL_NUM: 20 # 配列サイズが5なので、laplace_parallel.yamlよりも大きくしても計算が終わる
