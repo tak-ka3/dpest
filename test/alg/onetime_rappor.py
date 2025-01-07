@@ -4,6 +4,7 @@ from dpest.distrib import RawPmf
 from dpest.input import InputScalarToArray
 from dpest.operation import ToArray, Case
 from dpest.func import eps_est
+from dpest.config import ConfigManager
 
 def populate_bloom_filter(val):
     filter_size = 20
@@ -33,4 +34,5 @@ def onetime_rappor():
     return eps
 
 if __name__ == "__main__":
+    ConfigManager.load_config()
     print(onetime_rappor())

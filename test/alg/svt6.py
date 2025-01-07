@@ -3,6 +3,7 @@ from dpest.input import InputArray
 from dpest.operation import Comp, ToArray
 from dpest.utils import laplace_extract
 from dpest.func import eps_est
+from dpest.config import ConfigManager
 
 def svt6():
     eps = 0.1
@@ -22,4 +23,5 @@ def svt6():
     return eps
 
 if __name__ == "__main__":
+    ConfigManager.load_config()
     print(svt6())

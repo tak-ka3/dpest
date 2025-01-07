@@ -4,6 +4,7 @@ from dpest.distrib import Uni
 from dpest.operation import Br
 from dpest.input import InputScalarToArray
 from dpest.func import eps_est
+from dpest.config import ConfigManager
 
 def truncated_geometric():
     eps = 0.1
@@ -54,4 +55,5 @@ def truncated_geometric():
     return eps
 
 if __name__ == '__main__':
+    ConfigManager.load_config()
     print(truncated_geometric())

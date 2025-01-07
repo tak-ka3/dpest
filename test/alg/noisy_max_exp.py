@@ -2,6 +2,7 @@ from dpest.operation import Max
 from dpest.input import InputArray
 from dpest.utils import exp_extract
 from dpest.func import eps_est
+from dpest.config import ConfigManager
 
 def noisy_max_exp():
     INPUT_ARR_SIZE = 5
@@ -16,4 +17,5 @@ def noisy_max_exp():
     return eps
 
 if __name__ == "__main__":
+    ConfigManager.load_config()
     print(noisy_max_exp())
