@@ -62,7 +62,7 @@ def run_with_postprocessing(n_processes: int, out_dir: str, only_mechanism=None,
     with initialize_parallel_executor(n_processes, out_dir):
         alg_list = [
             (noisy_max_lap, SettingType.COMMON),
-            (noisy_arg_max_lap, SettingType.SPECIFIC),
+            (noisy_arg_max_lap, SettingType.COMMON),
             (noisy_arg_max_exp, SettingType.COMMON),
             (noisy_max_exp, SettingType.COMMON),
             (noisy_hist1, SettingType.SPECIFIC),
@@ -85,7 +85,7 @@ def run_with_postprocessing(n_processes: int, out_dir: str, only_mechanism=None,
 
         # 特定のアルゴリズムだけを実行する場合
         if only_mechanism is not None:
-            alg_list = [(alg_dict[only_mechanism], SettingType.SPECIFIC)]
+            alg_list = [(alg_dict[only_mechanism], SettingType.COMMON)]
 
         for alg in alg_list:
             # ここでcommon.yamlを読み込むことも選択可能
