@@ -6,7 +6,7 @@ from scipy.integrate import quad
 from itertools import product, combinations
 from utils.pr_calc import nonuniform_convolution
 from . import Pmf
-from dpest.config import *
+from dpest.config import ConfigManager, prng
 from dpest.distrib import RawPmf
 from typing import Union
 
@@ -100,6 +100,7 @@ class Max(Pmf):
         f1 = interpolate.CubicSpline(val1, pdf1, bc_type='natural', extrapolate=True)
         f2 = interpolate.CubicSpline(val2, pdf2, bc_type='natural', extrapolate=True)
         output_pdf = []
+        INF = ConfigManager.get("INF")
         for v in output_vals:
             output_pdf.append(f1(v) * quad(f2, -INF, v)[0] + f2(v) * quad(f1, -INF, v)[0])
         return RawPmf(dict(zip(output_vals, output_pdf)))
@@ -164,6 +165,7 @@ class Comp(Pmf):
     def calc_pdf(self, children):
         assert len(children) == 2
         child1, child2 = children
+        INF = ConfigManager.get("INF")
 
         # 片方がArrayItemという定数
         if isinstance(child1, (int, float)) or isinstance(child2, (int, float)):

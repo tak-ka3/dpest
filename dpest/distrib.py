@@ -1,7 +1,7 @@
 from __future__ import annotations
 import numpy as np
 from . import Pmf
-from dpest.config import *
+from dpest.config import ConfigManager, prng
 from dpest.input import ArrayItem
 from typing import Union
 
@@ -24,9 +24,9 @@ class Laplace(Pmf):
         self.b = b
         self.name = f"Laplace({mu.name if isinstance(mu, ArrayItem) else mu}, {b})"
         self.depend_vars = [self]
-        self.upper = LAP_UPPER
-        self.lower = LAP_LOWER
-        self.num = LAP_VAL_NUM
+        self.upper = ConfigManager.get("LAP_UPPER")
+        self.lower = ConfigManager.get("LAP_LOWER")
+        self.num = ConfigManager.get("LAP_VAL_NUM")
 
     def calc_strict_pdf(self, vals: np.ndarray):
         """
@@ -45,9 +45,9 @@ class Exp(Pmf):
         self.b = b
         self.name = f"Exponential({mu.name if isinstance(mu, ArrayItem) else mu}, {b})"
         self.depend_vars = [self]
-        self.upper = EXP_UPPER
-        self.lower = EXP_LOWER
-        self.num = EXP_VAL_NUM
+        self.upper = ConfigManager.get("EXP_UPPER")
+        self.lower = ConfigManager.get("EXP_LOWER")
+        self.num = ConfigManager.get("EXP_VAL_NUM")
 
     def calc_strict_pdf(self, vals: np.ndarray):
         """

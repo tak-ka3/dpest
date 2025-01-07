@@ -46,9 +46,7 @@ def eps_est(Y: Pmf):
     計算グラフを辿って、Operationの依存関係を調べる
     依存関係は最も子供から調べる。子が依存する確率変数は親も依存するという関係
     """
-    # ArrayItemに代入する
     # TODO: infか1かの隣接性はプログラマが指定できるようにする
-
     # 計算グラフをたどり、入力の配列のサイズ、隣接性の定義を取得
     input_size, adj = input_analysis(Y)
     input_list = input_generator(adj, input_size)
@@ -68,8 +66,8 @@ def eps_est(Y: Pmf):
                 raise ValueError("Invalid value")
             eps = search_scalar_all(np.array(val1), np.array(pdf1), np.array(pdf2))
 
-        print("eps=", eps)
+        # print("eps=", eps)
         if max_eps < eps:
             max_eps = eps
-    print("eps_est")
+    # print("- estimated eps:", max_eps)
     return max_eps
