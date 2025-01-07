@@ -27,9 +27,10 @@ from test.alg.truncated_geometric import truncated_geometric
 
 from dpsniper.utils.my_multiprocessing import initialize_parallel_executor
 from dpsniper.utils.paths import get_output_directory, set_output_directory
+from dpsniper.utils.my_logging import log
 from statdpwrapper.algorithms_ext import *
 from datetime import datetime
-from experiment.run_all import run_alg_by_dpest
+from experiment.run_alg import run_alg_by_dpest
 from dpest.config import ConfigManager
 from enum import Enum, auto
 
@@ -81,5 +82,7 @@ def run_with_postprocessing(n_processes: int, out_dir: str, only_mechanism=None,
             alg_func = alg[0]
             setting_file_name = "common" if alg[1] == SettingType.COMMON else alg_func.__name__
             ConfigManager.load_config(setting_file_name)
+            setting_str = ConfigManager.get_setting_str()
+            log.info("setting: %s", setting_str)
             run_alg_by_dpest(alg_func)
     log.info("finished experiments")

@@ -87,6 +87,6 @@ exp_%:
 	python -m experiment --output-dir "$(OUT_BASE)" --processes 1 --alg $*
 
 
-make dpest-exp:
+make exp_dpest:
 	@echo "Running dpest experiments"
 	python -m experiment --output-dir "$(OUT_BASE)" --processes 1

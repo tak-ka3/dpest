@@ -29,3 +29,12 @@ class ConfigManager:
         if cls._config is None:
             raise ValueError("Config not loaded. Call 'load_config' first.")
         return cls._config.get(key, default)
+    
+    @classmethod
+    def get_setting_str(cls):
+        """
+        設定値を文字列で取得
+        """
+        if cls._config is None:
+            raise ValueError("Config not loaded. Call 'load_config' first.")
+        return str(cls._config)

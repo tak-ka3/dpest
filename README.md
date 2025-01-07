@@ -14,7 +14,7 @@ $ make {alg_name}
 $ make exp_{alg_name}
 
 # 全てのアルゴリズムを実験する。実験結果は上記と同じ場所にある。
-$ make dpest-exp
+$ make exp_dpest
 ```
 
 ## アルゴリズム一覧
