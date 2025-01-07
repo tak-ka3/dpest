@@ -84,7 +84,7 @@ adj_truncated_geometric := 1
 
 exp_%:
 	@echo "Running experiment for $*"
-	python experiment/run_alg.py $*
+	python -m experiment --output-dir "$(OUT_BASE)" --processes 1 --alg $*
 
 
 make dpest-exp:

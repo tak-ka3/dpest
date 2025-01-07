@@ -13,7 +13,8 @@ setup(
         "matplotlib",
         "scipy",
         "mmh3",
-        "pyyaml"
+        "pyyaml",
+        "tqdm"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
