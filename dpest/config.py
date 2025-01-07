@@ -17,9 +17,16 @@ class ConfigManager:
         CUR_DIR = os.getcwd()
         if config_file_name is None:
             config_file_name = "common"
-        config_file = f"{CUR_DIR}/experiment/config/{config_file_name}.yaml"
-        with open(config_file, 'r') as f:
+        common_file = f"{CUR_DIR}/experiment/config/common.yaml"
+        with open(common_file, 'r') as f:
             cls._config = yaml.safe_load(f)
+        if config_file_name == "common":
+            return
+        config_file = f"{CUR_DIR}/experiment/config/{config_file_name}.yaml"
+        diff_config = {}
+        with open(config_file, 'r') as f:
+            diff_config = yaml.safe_load(f)
+        cls._config.update(diff_config)
 
     @classmethod
     def get(cls, key, default=None):

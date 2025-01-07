@@ -28,7 +28,6 @@ from test.alg.truncated_geometric import truncated_geometric
 from dpsniper.utils.my_multiprocessing import initialize_parallel_executor
 from dpsniper.utils.paths import get_output_directory, set_output_directory
 from dpsniper.utils.my_logging import log
-from statdpwrapper.algorithms_ext import *
 from datetime import datetime
 from experiment.run_alg import run_alg_by_dpest
 from dpest.config import ConfigManager
@@ -65,17 +64,28 @@ def run_with_postprocessing(n_processes: int, out_dir: str, only_mechanism=None,
             (noisy_max_lap, SettingType.COMMON),
             (noisy_arg_max_lap, SettingType.SPECIFIC),
             (noisy_arg_max_exp, SettingType.COMMON),
-            # , noisy_arg_max_exp, noisy_max_lap, noisy_max_exp,
-            # noisy_hist1, noisy_hist2, laplace_parallel,
-            # noisy_sum, prefix_sum,
-            # onetime_rappor, rappor,
-            # svt1, svt2, svt3, svt4, svt5, svt6, svt34_parallel, num_svt,
-            # truncated_geometric
+            (noisy_max_exp, SettingType.COMMON),
+            (noisy_hist1, SettingType.SPECIFIC),
+            (noisy_hist2, SettingType.SPECIFIC),
+            (laplace_parallel, SettingType.SPECIFIC),
+            (noisy_sum, SettingType.COMMON),
+            (prefix_sum, SettingType.SPECIFIC),
+            (onetime_rappor, SettingType.COMMON),
+            (rappor, SettingType.COMMON),
+            (svt1, SettingType.COMMON),
+            (svt2, SettingType.COMMON),
+            (svt3, SettingType.COMMON),
+            (svt4, SettingType.COMMON),
+            (svt5, SettingType.COMMON),
+            (svt6, SettingType.COMMON),
+            (svt34_parallel, SettingType.COMMON),
+            (num_svt, SettingType.COMMON),
+            (truncated_geometric, SettingType.COMMON)
         ]
 
         # 特定のアルゴリズムだけを実行する場合
         if only_mechanism is not None:
-            alg_list = [(alg_dict[only_mechanism], SettingType.COMMON)]
+            alg_list = [(alg_dict[only_mechanism], SettingType.SPECIFIC)]
 
         for alg in alg_list:
             # ここでcommon.yamlを読み込むことも選択可能
