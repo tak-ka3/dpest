@@ -4,12 +4,13 @@ import os
 from dpest.config import *
 from datetime import datetime
 import sys
+from dpest.config import ConfigManager
 
 # 正規表現パターン: {変数名} = 数値（整数または小数）
 pattern = r"^([A-Z_]+)\s*=\s*([-+]?\d+\.?\d*)$"
 
 def extract_parameters(input_path, output_path):
-    with open(input_path, "r") as infile, open(output_path, "w") as outfile:
+    with open(input_path, "r") as infile, open(output_path, "a") as outfile:
         outfile.write("## Parameters\n")
         for line in infile:
             line = line.strip()  # 前後の空白を削除
@@ -21,6 +22,7 @@ def extract_parameters(input_path, output_path):
                 outfile.write(f"{var_name} = {value}\n")
 
 if __name__ == "__main__":
+    ConfigManager.load_config()
     assert len(sys.argv) == 2, "Usage: python run_alg.py <algorithm_name>"
     alg_name = sys.argv[1]
     command = ["make", alg_name]

@@ -9,6 +9,8 @@ TASKS := noisy_sum prefix_sum noisy_max_lap noisy_max_exp noisy_arg_max_lap \
 # EXPタスクリストを生成
 EXP_TASKS := $(addprefix exp_, $(TASKS))
 
+OUT_BASE=$(CURDIR)/experiment/out
+
 # すべての通常タスクを実行
 all: $(TASKS)
 
@@ -80,7 +82,11 @@ adj_truncated_geometric := 1
 	@echo "correct_eps=$(correct_eps_$@), adj=$(adj_$@)"
 	python -m test.alg.$@
 
-# EXPタスクのルール
 exp_%:
 	@echo "Running experiment for $*"
 	python experiment/run_alg.py $*
+
+
+make dpest-exp:
+	@echo "Running dpest experiments"
+	python -m experiment --output-dir "$(OUT_BASE)" --processes 1
