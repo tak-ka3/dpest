@@ -4,7 +4,7 @@ from . import Pmf
 from dpest.operation import Case, Br
 from dpest.distrib import Laplace, Exp, ArrayItem, HistPmf, RawPmf, Uni
 from dpest.input import InputScalarToArrayItem
-from dpest.config import *
+from dpest.config import ConfigManager, prng
 from typing import Union
 
 def input_analysis_rec(var, size, adj):
@@ -105,6 +105,8 @@ def calc_pdf_by_sampling(var1, var2):
     """
     サンプリングにより確率密度を計算し、RawPmfに格納して返す
     """
+    SAMPLING_NUM = ConfigManager.get("SAMPLING_NUM")
+    GRID_NUM = ConfigManager.get("GRID_NUM")
     # sampling_val_memoはサンプリングした値を記録するための辞書
     def _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo: dict): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
         if isinstance(var1, (float, int, np.float64, np.int64, str)):
