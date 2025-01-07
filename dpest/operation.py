@@ -76,10 +76,34 @@ class Add(Pmf):
         assert len(args) == 2
         return args[0] + args[1]
 
-"""
-max
-"""
+class Mul(Pmf):
+    """
+    一つの確率変数に定数をかける
+    """
+    def __init__(self, var: Pmf, const: Union[int, float]):
+        assert isinstance(var, Pmf) & isinstance(const, (int, float))
+        super().__init__()
+        self.child = [var]
+        self.name = f"Mul({var.name}, {const})"
+        self.is_args_depend = False
+        self.depend_vars = var.depend_vars
+    
+    def __call__(self, var: Pmf, const: Union[int, float]):
+        return var() * const
+    
+    def calc_pdf(self, child):
+        """
+        引数から出力の確率密度を厳密に計算する
+        """
+        val = list(child[0].val_to_prob.keys())
+        pdf = list(child[0].val_to_prob.values())
+        output_vals = [v * child[1] for v in val]
+        return RawPmf(dict(zip(output_vals, pdf)))
+
 class Max(Pmf):
+    """
+    二つの確率変数を比較し、大きい方を返す
+    """
     def __init__(self, var1: Pmf, var2: Pmf):
         super().__init__()
         self.child = [var1, var2]
