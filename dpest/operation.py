@@ -12,9 +12,9 @@ from typing import Union
 
 class Add(Pmf):
     """
-    二つの確率変数同士を足すクラス
+    二つの確率変数同士もしくは一つの確率変数と定数を足すクラス
     """
-    def __init__(self, var1: Pmf, var2: Pmf):
+    def __init__(self, var1: Pmf, var2: Union[Pmf, int, float]):
         assert isinstance(var1, Pmf) & isinstance(var2, (Pmf, int, float))
         super().__init__()
         self.child = [var1, var2]
@@ -225,10 +225,10 @@ class Comp(Pmf):
         assert len(args) == 2
         return args[0] > args[1]
 
-"""
-確率変数を1つ引数に取り、特定の定数に等しい場合に、特定の値や確率変数を返す
-"""
 class Case(Pmf):
+    """
+    確率変数を1つ引数に取り、特定の定数に等しい場合に、特定の値や確率変数を返す
+    """
     def __new__(cls, var: Union[Pmf, int, float] = None, case_dict: dict = None):
         if isinstance(var, (int, float)):
             if case_dict.get(var) is None:
