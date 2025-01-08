@@ -61,13 +61,13 @@ def run_with_postprocessing(n_processes: int, out_dir: str, only_mechanism=None,
 
     with initialize_parallel_executor(n_processes, out_dir):
         alg_list = [
+            (laplace_parallel, SettingType.SPECIFIC),
             (noisy_max_lap, SettingType.COMMON),
             (noisy_arg_max_lap, SettingType.COMMON),
             (noisy_arg_max_exp, SettingType.COMMON),
             (noisy_max_exp, SettingType.COMMON),
             (noisy_hist1, SettingType.SPECIFIC),
             (noisy_hist2, SettingType.SPECIFIC),
-            (laplace_parallel, SettingType.SPECIFIC),
             (noisy_sum, SettingType.COMMON),
             (prefix_sum, SettingType.SPECIFIC),
             (onetime_rappor, SettingType.COMMON),
@@ -95,4 +95,5 @@ def run_with_postprocessing(n_processes: int, out_dir: str, only_mechanism=None,
             setting_str = ConfigManager.get_setting_str()
             log.info("setting: %s", setting_str)
             run_alg_by_dpest(alg_func)
+            ConfigManager.reset()
     log.info("finished experiments")

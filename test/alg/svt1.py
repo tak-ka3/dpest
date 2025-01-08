@@ -20,16 +20,16 @@ def svt1():
     LapArr = list(laplace_extract(InputArray(INPUT_ARR_SIZE, adj="inf"), sens*c/(eps2/2)))
     result = []
     cnt = 0 # 閾値を超えた数
-    cnt_over = 0 # breakの真偽値
+    is_broken = 0 # breakの真偽値
     for i in range(INPUT_ARR_SIZE):
         is_over = Br(LapArr[i], Lap, True, False)
         case_dict = {1: np.nan, "otherwise": is_over}
-        output = Case(cnt_over, case_dict)
+        output = Case(is_broken, case_dict)
         result.append(output)
 
         # breakの処理
         cnt = Add(Br(LapArr[i], Lap, 1, 0), cnt)
-        cnt_over = Br(cnt, c, 1, 0)
+        is_broken = Br(cnt, c, 1, 0)
 
     Y = ToArray(*result)
     eps = eps_est(Y)

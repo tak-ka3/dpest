@@ -45,3 +45,10 @@ class ConfigManager:
         if cls._config is None:
             raise ValueError("Config not loaded. Call 'load_config' first.")
         return str(cls._config)
+    
+    @classmethod
+    def reset(cls):
+        """
+        設定値をリセット
+        """
+        cls._config = None
