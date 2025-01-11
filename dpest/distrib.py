@@ -34,8 +34,8 @@ class Laplace(Pmf):
         """
         return np.exp(-np.abs(vals - self.child[0]) / self.b) / (2 * self.b)
     
-    def sampling(self):
-        return prng.laplace(self.child[0], self.b)
+    def sampling(self, n_samples: int):
+        return prng.laplace(self.child[0], self.b, n_samples)
         
 
 class Exp(Pmf):
