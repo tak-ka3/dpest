@@ -81,12 +81,14 @@ adj_truncated_geometric := 1
 %:
 	@echo "correct_eps=$(correct_eps_$@), adj=$(adj_$@)"
 	python -m test.alg.$@
+# python -m cProfile -s time -m test.alg.$@ > profile_result_svt2_2.log 2>&1
 
 exp_%:
 	@echo "Running experiment for $*"
-	python -m experiment --output-dir "$(OUT_BASE)" --processes 1 --alg $*
+	python -m experiment --output-dir "$(OUT_BASE)" --alg $*
+# python -m cProfile -s time -m experiment --output-dir "$(OUT_BASE)" --alg $* > profile_result.log 2>&1
 
 
 exp_dpest:
 	@echo "Running dpest experiments"
-	python -m experiment --output-dir "$(OUT_BASE)" --processes 1
+	python -m experiment --output-dir "$(OUT_BASE)"

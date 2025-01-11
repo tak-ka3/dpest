@@ -259,35 +259,36 @@ def calc_pdf_by_sampling(var1, var2):
 
         # arr1, arr2 は形状 (SAMPLING_NUM, array_dim) や要素がリストの可能性あり
 
-        def process_sample_row(row):
-            processed = []
-            for val in row:
-                if np.isnan(val):
-                    processed.append(None)
-                elif isinstance(val, bool):
-                    processed.append(val)
-                    # print("bool: ", val)
-                elif isinstance(val, np.bool_):
-                    processed.append(bool(val))
-                    # print("np.bool_: ", val)
-                elif isinstance(val, float):
-                    bin_index = np.digitize(val, float_grid, right=False) - 1
-                    bin_index = max(0, min(bin_index, len(float_grid_labels) - 1))
-                    processed.append(float_grid_labels[bin_index])
-                else:
-                    processed.append(val)
-            return tuple(processed)
+        def process_rows(arr, float_grid, float_grid_labels):
+            # NaNの判定関数を定義
+            def is_nan_safe(val):
+                return isinstance(val, float) and np.isnan(val)
 
-        # サンプリング結果すべてをビン分け or NaN処理
-        outputs1_processed = []
-        for row in arr1:
-            outputs1_processed.append(process_sample_row(row))
+            # NaNマスク
+            nan_mask = np.vectorize(is_nan_safe)(arr)
 
-        outputs2_processed = []
-        for row in arr2:
-            outputs2_processed.append(process_sample_row(row))
+            # float型の値マスク
+            float_mask = ~nan_mask & np.vectorize(lambda x: isinstance(x, float))(arr)
 
-        # print("outputs1_processed: ", outputs1_processed)
+            # ビン分け
+            bins = np.digitize(arr[float_mask], float_grid, right=False) - 1
+            bins = np.clip(bins, 0, len(float_grid_labels) - 1)
+
+            # 結果の生成
+            result = np.empty(arr.shape, dtype=object)  # オブジェクト型で空配列を作成
+            result[nan_mask] = None  # NaNの場所をNoneに
+            result[float_mask] = np.array(float_grid_labels)[bins]  # ビン分けしたラベルを割り当て
+
+            # 他の値はそのままコピー
+            other_mask = ~(nan_mask | float_mask)
+            result[other_mask] = arr[other_mask]
+
+            # 行ごとにタプルに変換
+            return [tuple(row) for row in result]
+
+        # サンプリング結果すべてを処理
+        outputs1_processed = process_rows(arr1, float_grid, float_grid_labels)
+        outputs2_processed = process_rows(arr2, float_grid, float_grid_labels)
 
         counts_dict1 = Counter(outputs1_processed)
         counts_dict2 = Counter(outputs2_processed)
@@ -296,9 +297,6 @@ def calc_pdf_by_sampling(var1, var2):
 
         filtered_counts_dict1 = {k: counts_dict1[k] for k in common_keys}
         filtered_counts_dict2 = {k: counts_dict2[k] for k in common_keys}
-
-        # print("filtered_counts_dict1: ", filtered_counts_dict1)
-        # print("filtered_counts_dict2: ", filtered_counts_dict2)
 
         return HistPmf(filtered_counts_dict1), HistPmf(filtered_counts_dict2)
 

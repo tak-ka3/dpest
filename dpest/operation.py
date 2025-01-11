@@ -305,7 +305,7 @@ class Case(Pmf):
         assert len(args) == 2
         keys, case_dicts = args
         assert isinstance(keys, (np.ndarray)) & isinstance(case_dicts, np.ndarray)
-        assert isinstance(keys[0], (int, float, np.int64, np.float64)) & isinstance(case_dicts[0], dict)
+        assert isinstance(keys[0], (int, float, np.int64, np.float64, bool, np.bool_)) & isinstance(case_dicts[0], dict)
         result = np.array([(case_dict[key] if case_dict.get(key) is not None else case_dict["otherwise"]) for key, case_dict in zip(keys, case_dicts)], dtype=object)
         return result
 
