@@ -101,136 +101,200 @@ def calc_pdf_rec(var):
     output_var = var.calc_pdf([calc_pdf_rec(child) for child in var.child])
     return output_var
 
+import numpy as np
+import multiprocessing
+from collections import Counter
+
+# 以下のクラス・関数は、環境に応じてインポート・定義してください
+# - Laplace, Exp, Uni, HistPmf, ConfigManager, prng
+#  ここでは並列サンプリング部分の再構成にフォーカスしています。
+
+def _calc_pdf_by_sampling_rec(v1, v2, memo):
+    """
+    再帰的に v1, v2 をサンプリングし、それぞれの値を返す。
+    memo は一度サンプリングした変数の値をキャッシュする辞書。
+    """
+    # すでにキャッシュされていればそれを返す
+    if v1 in memo and v2 in memo:
+        return memo[v1], memo[v2]
+
+    # スカラーや文字列の場合
+    if isinstance(v1, (float, int, np.float64, np.int64, str)):
+        memo[v1] = v1
+        memo[v2] = v2
+        return v1, v2
+
+    # Laplace や Exp の場合（子が int/float である場合のみ）
+    if isinstance(v1, (Laplace, Exp)):
+        if isinstance(v1.child[0], (int, float)):
+            sample1 = v1.sampling()
+            sample2 = v2.sampling()
+            memo[v1] = sample1
+            memo[v2] = sample2
+            return sample1, sample2
+        else:
+            raise ValueError("Invalid value in Laplace or Exp.")
+
+    # Uni の場合
+    if isinstance(v1, Uni):
+        sample1 = prng.integers(v1.lower, v1.upper)
+        sample2 = prng.integers(v2.lower, v2.upper)
+        memo[v1] = sample1
+        memo[v2] = sample2
+        return sample1, sample2
+
+    # 再帰処理: v1, v2 の子要素をそれぞれサンプリングして関数適用
+    updated_child1, updated_child2 = [], []
+    for c1, c2 in zip(v1.child, v2.child):
+        out1, out2 = _calc_pdf_by_sampling_rec(c1, c2, memo)
+        updated_child1.append(out1)
+        updated_child2.append(out2)
+
+    result1 = v1.func(updated_child1)
+    result2 = v2.func(updated_child2)
+    memo[v1] = result1
+    memo[v2] = result2
+    return result1, result2
+
+
+def _sample_once(args):
+    """
+    var1, var2 を 1 回サンプリングして (output1, output2) を返す関数。
+    multiprocessing.Pool.map で呼び出せるように、引数は (var1, var2) のタプルにする。
+    """
+    var1, var2 = args
+    memo = {}
+    return _calc_pdf_by_sampling_rec(var1, var2, memo)
+
+
+def _gather_samples(var1, var2, n_samples):
+    """
+    var1, var2 を n_samples 回サンプリングし、その結果のリストを返す。
+    multiprocessing の Pool.map を使って並列化している。
+    """
+    # (var1, var2) を n_samples 回分作って pool.map に渡す
+    args_list = [(var1, var2)] * n_samples
+    with multiprocessing.Pool() as pool:
+        results = pool.map(_sample_once, args_list)
+
+    # results は [(o1, o2), (o1, o2), ...] の形
+    outputs1 = [r[0] for r in results]
+    outputs2 = [r[1] for r in results]
+    return outputs1, outputs2
+
+
 def calc_pdf_by_sampling(var1, var2):
     """
-    サンプリングにより確率密度を計算し、RawPmfに格納して返す
+    var1, var2 をサンプリングして確率密度（HistPmf）を計算し、返す関数。
     """
     SAMPLING_NUM = ConfigManager.get("SAMPLING_NUM")
-    GRID_NUM = ConfigManager.get("GRID_NUM")
-    # sampling_val_memoはサンプリングした値を記録するための辞書
-    def _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo: dict): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
-        if isinstance(var1, (float, int, np.float64, np.int64, str)):
-            return var1, var2
-        elif sampling_val_memo.get(var1) is not None:
-            return sampling_val_memo[var1], sampling_val_memo[var2]
-        elif isinstance(var1, (Laplace, Exp)):
-            if isinstance(var1.child[0], (int, float)):
-                lap_sample1, lap_sample2 = var1.sampling(), var2.sampling()
-                sampling_val_memo[var1], sampling_val_memo[var2] = lap_sample1, lap_sample2
-                return lap_sample1, lap_sample2
-            else:
-                raise ValueError("Invalid value")
-        elif isinstance(var1, Uni):
-            uni_sample1, uni_sample2 = prng.integers(var1.lower, var1.upper), prng.integers(var2.lower, var2.upper)
-            sampling_val_memo[var1], sampling_val_memo[var2] = uni_sample1, uni_sample2
-            return uni_sample1, uni_sample2
-        updated_child1, updated_child2 = [], []
-        for child1, child2 in zip(var1.child, var2.child):
-            c1, c2 = _calc_pdf_by_sampling_rec(child1, child2, sampling_val_memo)
-            updated_child1.append(c1)
-            updated_child2.append(c2)
-        return var1.func(updated_child1), var2.func(updated_child2)
+    GRID_NUM     = ConfigManager.get("GRID_NUM")
 
-    # 最小値と最大値を知るためのサンプリング
-    # 出力集合は片方の入力セットから作っても問題ないので、var1の出力を使う
-    sampling_val_memo = {}
-    one_sample = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)[0]
+    # まず1サンプルをとって出力の型を確認
+    one_sample, _ = _sample_once((var1, var2))
     output_type = type(one_sample)
 
-    # εを求めるためのサンプリング
+    #----------------------------------------
+    # case 1: スカラー (int, float) の場合
+    #----------------------------------------
     if isinstance(one_sample, (int, np.int64, float, np.float64)):
-        # 最小値と最大値を求めるためのサンプリング
+        # test_samples回サンプリングして最小値と最大値を推定
         test_samples = 200
-        samples = np.empty(test_samples, dtype=output_type)
-        for i in range(test_samples):
-            sampling_val_memo = {}
-            samples[i] = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)[0]
-        max_vals = np.max(samples)
-        min_vals = np.min(samples)
-        outputs1, outputs2 = [], []
-        for _ in range(SAMPLING_NUM):
-            sampling_val_memo = {}
-            output1, output2 = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)
-            outputs1.append(output1)
-            outputs2.append(output2)
+        test_out1, _ = _gather_samples(var1, var2, test_samples)
+        test_out1 = np.asarray(test_out1, dtype=output_type)
+
+        min_vals, max_vals = np.min(test_out1), np.max(test_out1)
+
+        # 本番サンプリング
+        outputs1, outputs2 = _gather_samples(var1, var2, SAMPLING_NUM)
         outputs1 = np.asarray(outputs1)
         outputs2 = np.asarray(outputs2)
-        # 出力が整数値の場合は、それぞれ整数値ごとにヒストグラムを作成する
-        if isinstance(samples[0], (np.int64, int)):
-            # 整数値ごとのヒストグラムを作る際には、このように+2する必要がある
+
+        if isinstance(one_sample, (int, np.int64)):
+            # 整数の場合はヒストグラムのビンを [min, ..., max+1] とする
             hist_range = np.arange(min_vals, max_vals + 2)
             hist1, edges1 = np.histogram(outputs1, bins=hist_range)
             hist2, edges2 = np.histogram(outputs2, bins=hist_range)
         else:
+            # float の場合
             hist_range = (min_vals, max_vals)
             hist1, edges1 = np.histogram(outputs1, bins=GRID_NUM, range=hist_range)
             hist2, edges2 = np.histogram(outputs2, bins=GRID_NUM, range=hist_range)
+
         dict_hist1 = {edges1[i]: hist1[i] for i in range(len(hist1))}
         dict_hist2 = {edges2[i]: hist2[i] for i in range(len(hist2))}
         return HistPmf(dict_hist1), HistPmf(dict_hist2)
+
+    #----------------------------------------
+    # case 2: 配列やリストの場合
+    #----------------------------------------
     elif isinstance(one_sample, (np.ndarray, list)):
-        # 最小値と最大値を求めるためのサンプリング
         test_samples = 200
-        samples = np.empty(test_samples, dtype=object)
+        # 配列要素に int, float, bool, nan などが混在する可能性があるのでチェック
+        samples_obj, _ = _gather_samples(var1, var2, test_samples)
+
+        # 最小・最大を推定するための変数
         float_max = -np.inf
         float_min = np.inf
-        type_set = set()
-        for i in range(test_samples):
-            sampling_val_memo = {}
-            samples[i] = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)[0]
-            for scalar  in samples[i]:
-                if np.isnan(scalar):
-                    type_set.add(np.nan)
-                elif isinstance(scalar, bool):
-                    type_set.add(bool)
-                elif isinstance(scalar, (int, np.int64)):
-                    type_set.add(int)
-                elif isinstance(scalar, (float, np.float64)):
-                    float_max = max(float_max, scalar)
-                    float_min = min(float_min, scalar)
-                    type_set.add(float)
-                elif isinstance(scalar, np.nan):
-                    type_set.add(np.nan)
-                else:
-                    raise ValueError("Invalid type")
+        type_set  = set()
 
-        # floatを含む場合は、グリッドを作成する
+        # 配列の各要素をチェック
+        for arr in samples_obj:
+            for val in arr:
+                if np.isnan(val):
+                    type_set.add(np.nan)
+                elif isinstance(val, bool):
+                    type_set.add(bool)
+                elif isinstance(val, (int, np.int64)):
+                    type_set.add(int)
+                elif isinstance(val, (float, np.float64)):
+                    float_max = max(float_max, val)
+                    float_min = min(float_min, val)
+                    type_set.add(float)
+                else:
+                    raise ValueError("Invalid type inside array or list.")
+
+        # float を含むならグリッドを作成
         float_grid, float_grid_labels = [], []
+        GRID_NUM = int(GRID_NUM)  # 念のため
         if float in type_set:
             float_grid = np.linspace(float_min, float_max, GRID_NUM)
-            float_grid_labels = [f"[{float_grid[i]:.2f}, {float_grid[i + 1]:.2f})" for i in range(len(float_grid) - 1)]
+            float_grid_labels = [
+                f"[{float_grid[i]:.2f}, {float_grid[i+1]:.2f})"
+                for i in range(len(float_grid) - 1)
+            ]
 
-        outputs1, outputs2 = [], []
-        for _ in range(SAMPLING_NUM):
-            sampling_val_memo = {}
-            output1, output2 = _calc_pdf_by_sampling_rec(var1, var2, sampling_val_memo)
-            processed_output1, processed_output2 = [], []
-            for val in output1:
+        # 本番サンプリング
+        outputs1, outputs2 = _gather_samples(var1, var2, SAMPLING_NUM)
+
+        # それぞれの要素をbin化 or NaNなどに応じて処理
+        def process_array(arr):
+            processed = []
+            for val in arr:
                 if np.isnan(val):
-                    processed_output1.append(val)
+                    processed.append(val)  # そのまま NaN として
                 elif isinstance(val, float):
+                    # float_grid 上のビンを探す
                     bin_index = np.digitize(val, float_grid, right=False) - 1
                     bin_index = max(0, min(bin_index, len(float_grid_labels) - 1))
-                    processed_output1.append(float_grid_labels[bin_index])
+                    processed.append(float_grid_labels[bin_index])
                 else:
-                    processed_output1.append(val)
-            for val in output2:
-                # np.nanはnp.float型であるため、np.nanを含む場合はこちらで処理する
-                if np.isnan(val):
-                    processed_output2.append(val)
-                elif isinstance(val, float):
-                    bin_index = np.digitize(val, float_grid, right=False) - 1
-                    bin_index = max(0, min(bin_index, len(float_grid_labels) - 1))
-                    processed_output2.append(float_grid_labels[bin_index])
-                else:
-                    processed_output2.append(val)
-            outputs1.append(tuple(processed_output1))
-            outputs2.append(tuple(processed_output2))
-        counts_dict1 = Counter(outputs1)
-        counts_dict2 = Counter(outputs2)
-        commonkeys = set(counts_dict1.keys()) & set(counts_dict2.keys())
-        filtered_counts_dict1 = {k: counts_dict1[k] for k in commonkeys}
-        filtered_counts_dict2 = {k: counts_dict2[k] for k in commonkeys}
+                    # int, bool, などそのまま
+                    processed.append(val)
+            return tuple(processed)
+
+        outputs1_processed = [process_array(o) for o in outputs1]
+        outputs2_processed = [process_array(o) for o in outputs2]
+
+        # カウントして共通キーのみ残す
+        counts_dict1 = Counter(outputs1_processed)
+        counts_dict2 = Counter(outputs2_processed)
+        common_keys = set(counts_dict1.keys()) & set(counts_dict2.keys())
+
+        filtered_counts_dict1 = {k: counts_dict1[k] for k in common_keys}
+        filtered_counts_dict2 = {k: counts_dict2[k] for k in common_keys}
+
         return HistPmf(filtered_counts_dict1), HistPmf(filtered_counts_dict2)
+
     else:
-        raise ValueError("output_type is invalid")
+        raise ValueError("Output type is invalid or unsupported.")
