@@ -1,4 +1,5 @@
 import numpy as np
+import time
 import copy
 from collections import Counter
 from . import Pmf
@@ -6,6 +7,7 @@ from dpest.operation import Case, Br
 from dpest.distrib import Laplace, Exp, ArrayItem, HistPmf, RawPmf, Uni
 from dpest.input import InputScalarToArrayItem
 from dpest.config import ConfigManager, prng
+from dpsniper.utils.my_multiprocessing import the_parallel_executor, split_by_batch_size, split_into_parts
 from typing import Union
 
 def input_analysis_rec(var, size, adj):
@@ -108,7 +110,8 @@ from collections import Counter
 # Laplace, Exp, Uni, HistPmf, ConfigManager, prng などの定義や import は適宜行ってください。
 
 
-def _calc_pdf_by_sampling_rec_vec(v1, v2, n_samples):
+def _calc_pdf_by_sampling_rec_vec(args):
+    v1, v2, n_samples = args
     """
     v1, v2 をまとめて n_samples 回サンプリングし、それぞれ形状 (n_samples, ...) の配列(またはリスト)を返す。
     再帰呼び出しをベクトル化した実装。
@@ -156,7 +159,7 @@ def _calc_pdf_by_sampling_rec_vec(v1, v2, n_samples):
     child_arrays1 = []
     child_arrays2 = []
     for c1, c2 in zip(v1.child, v2.child):
-        subarr1, subarr2 = _calc_pdf_by_sampling_rec_vec(c1, c2, n_samples)
+        subarr1, subarr2 = _calc_pdf_by_sampling_rec_vec([c1, c2, n_samples])
         child_arrays1.append(subarr1)  # 形状 (n_samples,)
         child_arrays2.append(subarr2)
 
@@ -183,7 +186,7 @@ def calc_pdf_by_sampling(var1, var2):
     var1_cp = copy.deepcopy(var1)
     var2_cp = copy.deepcopy(var2)
     test_samples = 200
-    test_arr1, test_arr2 = _calc_pdf_by_sampling_rec_vec(var1_cp, var2_cp, test_samples)
+    test_arr1, test_arr2 = _calc_pdf_by_sampling_rec_vec([var1_cp, var2_cp, test_samples])
     # test_arr1, test_arr2 は形状 (test_samples, ...) の配列またはリスト
 
     # 先頭要素を見て出力タイプを推定 (スカラーか配列か etc.)
@@ -198,7 +201,7 @@ def calc_pdf_by_sampling(var1, var2):
         min_vals, max_vals = np.min(test_arr1), np.max(test_arr1)
 
         # 本番サンプリング
-        arr1, arr2 = _calc_pdf_by_sampling_rec_vec(var1, var2, SAMPLING_NUM)
+        arr1, arr2 = _calc_pdf_by_sampling_rec_vec([var1, var2, SAMPLING_NUM])
         # shape = (SAMPLING_NUM,)
 
         if isinstance(one_sample, (int, np.int64)):
@@ -251,11 +254,21 @@ def calc_pdf_by_sampling(var1, var2):
                 for i in range(len(float_grid) - 1)
             ]
 
-        # 本番サンプリング
-        arr1, arr2 = _calc_pdf_by_sampling_rec_vec(var1, var2, SAMPLING_NUM)
+        start_time = time.time()
 
-        arr1 = np.array(arr1).T
-        arr2 = np.array(arr2).T
+        # 本番サンプリング
+        PROCESS_NUM = 128  # TODO
+        inputs = [(var1, var2, batch) for batch in split_by_batch_size(SAMPLING_NUM, PROCESS_NUM)]
+
+        # パラレル実行
+        results = the_parallel_executor.execute(_calc_pdf_by_sampling_rec_vec, inputs)
+
+        # 返ってきた結果は (arr1_result, arr2_result) のリストになっている想定
+        # ここでリスト内包表記 + np.concatenate を用いて一気に結合
+        arr1 = np.concatenate([np.asarray(r[0]).T for r in results], axis=0)
+        arr2 = np.concatenate([np.asarray(r[1]).T for r in results], axis=0)
+        # arr1 = np.array(arr1).T
+        # arr2 = np.array(arr2).T
 
         # arr1, arr2 は形状 (SAMPLING_NUM, array_dim) や要素がリストの可能性あり
 
@@ -297,6 +310,10 @@ def calc_pdf_by_sampling(var1, var2):
 
         filtered_counts_dict1 = {k: counts_dict1[k] for k in common_keys}
         filtered_counts_dict2 = {k: counts_dict2[k] for k in common_keys}
+
+        # print(common_keys)
+        print("Time elapsed:", time.time() - start_time)
+        # exit()
 
         return HistPmf(filtered_counts_dict1), HistPmf(filtered_counts_dict2)
 
