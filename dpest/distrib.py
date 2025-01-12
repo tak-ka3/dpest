@@ -55,8 +55,8 @@ class Exp(Pmf):
         """
         return (1 / self.b) * np.exp(-(vals - self.child[0]) / self.b)
     
-    def sampling(self):
-        return prng.exponential(self.b) + self.child[0]
+    def sampling(self, n_samples: int):
+        return prng.exponential(self.b, n_samples) + self.child[0]
 
 class Uni(Pmf):
     """

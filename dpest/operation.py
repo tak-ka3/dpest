@@ -134,7 +134,7 @@ class Max(Pmf):
         通常の関数としての振る舞い
         """
         assert len(args) == 2
-        return max(args)
+        return np.maximum(args[0], args[1])
     
 class Br(Pmf):
     """

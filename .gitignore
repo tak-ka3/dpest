@@ -7,3 +7,4 @@ dpest.egg-info/
 experiment/
 !experiment/*.py
 !experiment/config/
+build/
