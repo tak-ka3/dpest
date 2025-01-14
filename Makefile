@@ -2,6 +2,7 @@
 
 # タスクリスト
 TASKS := lap noisy_sum prefix_sum noisy_max_lap noisy_max_exp noisy_arg_max_lap \
+		 noisy_max_lap_opt noisy_arg_max_lap_opt \
          noisy_arg_max_exp svt1 svt2 svt3 svt4 svt5 svt6 svt34_parallel num_svt \
          noisy_hist1 noisy_hist2 laplace_parallel \
 		 onetime_rappor rappor truncated_geometric
@@ -79,6 +80,13 @@ adj_rappor := 1
 
 correct_eps_truncated_geometric := 0.12
 adj_truncated_geometric := 1
+
+# 最適化
+correct_eps_noisy_max_lap_opt := 0.5
+adj_noisy_max_lap := inf
+
+correct_eps_noisy_arg_max_lap_opt := 0.1
+adj_noisy_arg_max_lap := inf
 
 # 各タスクの共通ルール
 %:
