@@ -4,7 +4,7 @@ from collections import Counter
 from . import Pmf
 from dpest.operation import Case, Br
 from dpest.distrib import Laplace, Exp, ArrayItem, HistPmf, RawPmf, Uni
-from dpest.input import InputScalarToArrayItem
+from dpest.input import InputScalarToArrayItem, InputScalar
 from dpest.config import ConfigManager, prng
 from typing import Union
 
@@ -21,6 +21,8 @@ def input_analysis_rec(var, size, adj):
         if size == 0:
             size = 1
         return size, adj
+    if isinstance(var, InputScalar):
+        return 1, ""
     for child in var.child:
         size, adj = input_analysis_rec(child, size, adj)
     return size, adj
@@ -33,12 +35,17 @@ def insert_input_rec(var1, var2, input_val_list1, input_val_list2):
         elif isinstance(var1.child[0], ArrayItem):
             var1.child[0] = input_val_list1[var1.child[0].ind]
             var2.child[0] = input_val_list2[var2.child[0].ind]
-            vals = np.linspace(var1.lower, var1.upper, var1.num)
-            probs1 = var1.calc_strict_pdf(vals)
-            probs2 = var2.calc_strict_pdf(vals)
-            var1.val_to_prob = dict(zip(vals, probs1))
-            var2.val_to_prob = dict(zip(vals, probs2))
-            return var1, var2
+        elif isinstance(var1.child[0], InputScalar):
+            var1.child[0] = input_val_list1[0]
+            var2.child[0] = input_val_list2[0]
+        else:
+            raise ValueError("Invalid child type in insert_input_rec.")
+        vals = np.linspace(var1.lower, var1.upper, var1.num)
+        probs1 = var1.calc_strict_pdf(vals)
+        probs2 = var2.calc_strict_pdf(vals)
+        var1.val_to_prob = dict(zip(vals, probs1))
+        var2.val_to_prob = dict(zip(vals, probs2))
+        return var1, var2
     elif isinstance(var1, ArrayItem):
         var1 = input_val_list1[var1.ind]
         var2 = input_val_list2[var2.ind]
@@ -102,11 +109,7 @@ def calc_pdf_rec(var):
     output_var = var.calc_pdf([calc_pdf_rec(child) for child in var.child])
     return output_var
 
-import numpy as np
 from collections import Counter
-
-# Laplace, Exp, Uni, HistPmf, ConfigManager, prng などの定義や import は適宜行ってください。
-
 
 def _calc_pdf_by_sampling_rec_vec(v1, v2, n_samples):
     """
@@ -116,8 +119,6 @@ def _calc_pdf_by_sampling_rec_vec(v1, v2, n_samples):
     if isinstance(v1, (bool, np.bool_)):
         arr1 = np.full((n_samples,), v1, dtype=np.bool_)
         arr2 = np.full((n_samples,), v2, dtype=np.bool_)
-        # print(type(arr1[0]))
-        # print(arr1)
         return arr1, arr2
     if isinstance(v1, (float, int, np.float64, np.int64, str)):
         arr1 = np.full((n_samples,), v1)

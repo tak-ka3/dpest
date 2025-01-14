@@ -1,7 +1,7 @@
 .PHONY: all $(TASKS) $(EXP_TASKS)
 
 # タスクリスト
-TASKS := noisy_sum prefix_sum noisy_max_lap noisy_max_exp noisy_arg_max_lap \
+TASKS := lap noisy_sum prefix_sum noisy_max_lap noisy_max_exp noisy_arg_max_lap \
          noisy_arg_max_exp svt1 svt2 svt3 svt4 svt5 svt6 svt34_parallel num_svt \
          noisy_hist1 noisy_hist2 laplace_parallel \
 		 onetime_rappor rappor truncated_geometric
@@ -17,6 +17,9 @@ all: $(TASKS)
 all_exp: $(EXP_TASKS)
 
 # 変数で eps を管理
+correct_eps_lap := 0.1
+adj_lap := inf
+
 correct_eps_noisy_sum := 0.1
 adj_noisy_sum := inf
 

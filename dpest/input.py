@@ -10,6 +10,15 @@ class ArrayItem(Pmf):
         self.adj = parent.adj
         self.name = f"ArrayItem({ind})"
 
+class InputScalar:
+    """
+    シンボリックなスカラ値のためのクラス
+    入力がスカラ値であるアルゴリズムではこれを用いる
+    """
+    def __init__(self):
+        self.child = []
+        self.name = "InputScalar"
+
 class InputArray:
     """
     シンボリックな配列の値のためのクラス
