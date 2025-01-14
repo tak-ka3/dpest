@@ -134,7 +134,7 @@ class Max(Pmf):
         通常の関数としての振る舞い
         """
         assert len(args) == 2
-        return max(args)
+        return np.maximum(args[0], args[1])
     
 class Br(Pmf):
     """
@@ -169,7 +169,8 @@ class Br(Pmf):
         """
         assert len(args) == 4
         input_var1, input_var2, output_var1, output_var2 = args
-        return output_var1 if input_var1 >= input_var2 else output_var2
+        result = np.where(input_var1 >= input_var2, output_var1, output_var2)
+        return result
 
 
 class Comp(Pmf):
@@ -302,14 +303,11 @@ class Case(Pmf):
         valに対応するcase_dictの値を返す
         """
         assert len(args) == 2
-        val = args[0]
-        case_dict = args[1]
-        assert isinstance(val, (int, float, np.int64, np.float64)) & isinstance(case_dict, dict)
-        if case_dict.get(val) is None:
-            if case_dict.get("otherwise") is None:
-                raise ValueError("Invalid Case")
-            return case_dict["otherwise"]
-        return case_dict[val]
+        keys, case_dicts = args
+        assert isinstance(keys, (np.ndarray)) & isinstance(case_dicts, np.ndarray)
+        assert isinstance(keys[0], (int, float, np.int64, np.float64, bool, np.bool_)) & isinstance(case_dicts[0], dict)
+        result = np.array([(case_dict[key] if case_dict.get(key) is not None else case_dict["otherwise"]) for key, case_dict in zip(keys, case_dicts)], dtype=object)
+        return result
 
 class CaseDict(Pmf):
     def __init__(self, case_dict: dict):
@@ -363,10 +361,15 @@ class CaseDict(Pmf):
             Caesクラスのみが引数にとるので、分岐のために辞書型で返したい
         """
         # 配列を辞書型に変換
-        case_dict = {}
-        for i in range(0, len(args), 2):
-            case_dict[args[i]] = args[i+1]
-        return case_dict
+        n_samples = args[0].size
+        
+        # 辞書配列を作成
+        case_dict_arr = np.array([
+            {args[j][i]: args[j + 1][i] for j in range(0, len(args), 2)}
+            for i in range(n_samples)
+        ], dtype=object)
+        
+        return case_dict_arr
 
 class ToArray(Pmf):
     """

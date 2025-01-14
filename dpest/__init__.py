@@ -15,3 +15,4 @@ class Pmf:
             all_vars.update(depend_vars_set)
         self.depend_vars = list(all_vars)
         self.is_sampling = False
+        self.sample = None

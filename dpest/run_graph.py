@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 from collections import Counter
 from . import Pmf
 from dpest.operation import Case, Br
@@ -102,148 +103,115 @@ def calc_pdf_rec(var):
     return output_var
 
 import numpy as np
-import multiprocessing
 from collections import Counter
 
-# 以下のクラス・関数は、環境に応じてインポート・定義してください
-# - Laplace, Exp, Uni, HistPmf, ConfigManager, prng
-#  ここでは並列サンプリング部分の再構成にフォーカスしています。
+# Laplace, Exp, Uni, HistPmf, ConfigManager, prng などの定義や import は適宜行ってください。
 
-def _calc_pdf_by_sampling_rec(v1, v2, memo):
-    """
-    再帰的に v1, v2 をサンプリングし、それぞれの値を返す。
-    memo は一度サンプリングした変数の値をキャッシュする辞書。
-    """
-    # すでにキャッシュされていればそれを返す
-    if v1 in memo and v2 in memo:
-        return memo[v1], memo[v2]
 
-    # スカラーや文字列の場合
+def _calc_pdf_by_sampling_rec_vec(v1, v2, n_samples):
+    """
+    v1, v2 をまとめて n_samples 回サンプリングし、それぞれ形状 (n_samples, ...) の配列(またはリスト)を返す。
+    再帰呼び出しをベクトル化した実装。
+    """
+    if isinstance(v1, (bool, np.bool_)):
+        arr1 = np.full((n_samples,), v1, dtype=np.bool_)
+        arr2 = np.full((n_samples,), v2, dtype=np.bool_)
+        # print(type(arr1[0]))
+        # print(arr1)
+        return arr1, arr2
     if isinstance(v1, (float, int, np.float64, np.int64, str)):
-        memo[v1] = v1
-        memo[v2] = v2
-        return v1, v2
+        arr1 = np.full((n_samples,), v1)
+        arr2 = np.full((n_samples,), v2)
+        return arr1, arr2
+    
+    if v1.sample is not None:
+        return v1.sample, v2.sample
 
-    # Laplace や Exp の場合（子が int/float である場合のみ）
     if isinstance(v1, (Laplace, Exp)):
-        if isinstance(v1.child[0], (int, float)):
-            sample1 = v1.sampling()
-            sample2 = v2.sampling()
-            memo[v1] = sample1
-            memo[v2] = sample2
-            return sample1, sample2
-        else:
-            raise ValueError("Invalid value in Laplace or Exp.")
+        # ここでは v1.sampling(n_samples) が shape = (n_samples,) を返すと仮定
+        arr1 = v1.sampling(n_samples)
+        arr2 = v2.sampling(n_samples)
+        v1.sample, v2.sample = arr1, arr2
+        return arr1, arr2
 
-    # Uni の場合
     if isinstance(v1, Uni):
-        sample1 = prng.integers(v1.lower, v1.upper)
-        sample2 = prng.integers(v2.lower, v2.upper)
-        memo[v1] = sample1
-        memo[v2] = sample2
-        return sample1, sample2
+        arr1 = prng.integers(v1.lower, v1.upper, size=n_samples)
+        arr2 = prng.integers(v2.lower, v2.upper, size=n_samples)
+        v1.sample, v2.sample = arr1, arr2
+        return arr1, arr2
 
-    # 再帰処理: v1, v2 の子要素をそれぞれサンプリングして関数適用
-    updated_child1, updated_child2 = [], []
+    child_arrays1 = []
+    child_arrays2 = []
     for c1, c2 in zip(v1.child, v2.child):
-        out1, out2 = _calc_pdf_by_sampling_rec(c1, c2, memo)
-        updated_child1.append(out1)
-        updated_child2.append(out2)
+        subarr1, subarr2 = _calc_pdf_by_sampling_rec_vec(c1, c2, n_samples)
+        child_arrays1.append(subarr1)  # 形状 (n_samples,)
+        child_arrays2.append(subarr2)
 
-    result1 = v1.func(updated_child1)
-    result2 = v2.func(updated_child2)
-    memo[v1] = result1
-    memo[v2] = result2
-    return result1, result2
-
-
-def _sample_once(args):
-    """
-    var1, var2 を 1 回サンプリングして (output1, output2) を返す関数。
-    multiprocessing.Pool.map で呼び出せるように、引数は (var1, var2) のタプルにする。
-    """
-    var1, var2 = args
-    memo = {}
-    return _calc_pdf_by_sampling_rec(var1, var2, memo)
-
-
-def _gather_samples(var1, var2, n_samples):
-    """
-    var1, var2 を n_samples 回サンプリングし、その結果のリストを返す。
-    multiprocessing の Pool.map を使って並列化している。
-    """
-    # (var1, var2) を n_samples 回分作って pool.map に渡す
-    args_list = [(var1, var2)] * n_samples
-    with multiprocessing.Pool() as pool:
-        results = pool.map(_sample_once, args_list)
-
-    # results は [(o1, o2), (o1, o2), ...] の形
-    outputs1 = [r[0] for r in results]
-    outputs2 = [r[1] for r in results]
-    return outputs1, outputs2
+    # ここで child_arrays1, child_arrays2 はリストになっているが、
+    # var1.func(var_list) がベクトル演算に対応するように実装しておくか、
+    # あるいは何らかの形で要素ごとに処理して (n_samples,) を作り直す。
+    # たとえば下記のように書けるかもしれない：
+    arr1 = v1.func(child_arrays1)  # ベクトル演算ができる前提
+    arr2 = v2.func(child_arrays2)  # 同上
+    return arr1, arr2
 
 
 def calc_pdf_by_sampling(var1, var2):
     """
-    var1, var2 をサンプリングして確率密度（HistPmf）を計算し、返す関数。
+    一度のサンプリングで n_samples 個まとめて取得できる実装。
+    var1.sampling(n_samples) が (n_samples, …) の形状を返すことを仮定している。
     """
     SAMPLING_NUM = ConfigManager.get("SAMPLING_NUM")
     GRID_NUM     = ConfigManager.get("GRID_NUM")
 
-    # まず1サンプルをとって出力の型を確認
-    one_sample, _ = _sample_once((var1, var2))
+    #------------------------------------------------------
+    # まずはテストサンプリング(例: 200) で min/max を推定
+    #------------------------------------------------------
+    var1_cp = copy.deepcopy(var1)
+    var2_cp = copy.deepcopy(var2)
+    test_samples = 200
+    test_arr1, test_arr2 = _calc_pdf_by_sampling_rec_vec(var1_cp, var2_cp, test_samples)
+    # test_arr1, test_arr2 は形状 (test_samples, ...) の配列またはリスト
+
+    # 先頭要素を見て出力タイプを推定 (スカラーか配列か etc.)
+    one_sample = test_arr1[0]
     output_type = type(one_sample)
 
-    #----------------------------------------
-    # case 1: スカラー (int, float) の場合
-    #----------------------------------------
     if isinstance(one_sample, (int, np.int64, float, np.float64)):
-        # test_samples回サンプリングして最小値と最大値を推定
-        test_samples = 200
-        test_out1, _ = _gather_samples(var1, var2, test_samples)
-        test_out1 = np.asarray(test_out1, dtype=output_type)
-
-        min_vals, max_vals = np.min(test_out1), np.max(test_out1)
+        # スカラーなので test_arr1, test_arr2 は shape = (test_samples,)
+        min_vals, max_vals = np.min(test_arr1), np.max(test_arr1)
 
         # 本番サンプリング
-        outputs1, outputs2 = _gather_samples(var1, var2, SAMPLING_NUM)
-        outputs1 = np.asarray(outputs1)
-        outputs2 = np.asarray(outputs2)
+        arr1, arr2 = _calc_pdf_by_sampling_rec_vec(var1, var2, SAMPLING_NUM)
+        # shape = (SAMPLING_NUM,)
 
         if isinstance(one_sample, (int, np.int64)):
-            # 整数の場合はヒストグラムのビンを [min, ..., max+1] とする
+            # 整数の場合
             hist_range = np.arange(min_vals, max_vals + 2)
-            hist1, edges1 = np.histogram(outputs1, bins=hist_range)
-            hist2, edges2 = np.histogram(outputs2, bins=hist_range)
+            hist1, edges1 = np.histogram(arr1, bins=hist_range)
+            hist2, edges2 = np.histogram(arr2, bins=hist_range)
         else:
             # float の場合
             hist_range = (min_vals, max_vals)
-            hist1, edges1 = np.histogram(outputs1, bins=GRID_NUM, range=hist_range)
-            hist2, edges2 = np.histogram(outputs2, bins=GRID_NUM, range=hist_range)
+            hist1, edges1 = np.histogram(arr1, bins=GRID_NUM, range=hist_range)
+            hist2, edges2 = np.histogram(arr2, bins=GRID_NUM, range=hist_range)
 
         dict_hist1 = {edges1[i]: hist1[i] for i in range(len(hist1))}
         dict_hist2 = {edges2[i]: hist2[i] for i in range(len(hist2))}
         return HistPmf(dict_hist1), HistPmf(dict_hist2)
 
-    #----------------------------------------
-    # case 2: 配列やリストの場合
-    #----------------------------------------
     elif isinstance(one_sample, (np.ndarray, list)):
-        test_samples = 200
-        # 配列要素に int, float, bool, nan などが混在する可能性があるのでチェック
-        samples_obj, _ = _gather_samples(var1, var2, test_samples)
-
-        # 最小・最大を推定するための変数
+        # test_arr1, test_arr2 は (test_samples, array_dim) という2次元以上の可能性もある
+        # あるいは each element がリストという可能性もある。
         float_max = -np.inf
         float_min = np.inf
-        type_set  = set()
+        type_set = set()
 
-        # 配列の各要素をチェック
-        for arr in samples_obj:
-            for val in arr:
+        for row in test_arr1:  # row は一つのサンプリング結果(リスト/配列)
+            for val in row:
                 if np.isnan(val):
                     type_set.add(np.nan)
-                elif isinstance(val, bool):
+                elif isinstance(val, (bool, np.bool_)):
                     type_set.add(bool)
                 elif isinstance(val, (int, np.int64)):
                     type_set.add(int)
@@ -256,7 +224,7 @@ def calc_pdf_by_sampling(var1, var2):
 
         # float を含むならグリッドを作成
         float_grid, float_grid_labels = [], []
-        GRID_NUM = int(GRID_NUM)  # 念のため
+        GRID_NUM = int(GRID_NUM)
         if float in type_set:
             float_grid = np.linspace(float_min, float_max, GRID_NUM)
             float_grid_labels = [
@@ -265,30 +233,47 @@ def calc_pdf_by_sampling(var1, var2):
             ]
 
         # 本番サンプリング
-        outputs1, outputs2 = _gather_samples(var1, var2, SAMPLING_NUM)
+        arr1, arr2 = _calc_pdf_by_sampling_rec_vec(var1, var2, SAMPLING_NUM)
 
-        # それぞれの要素をbin化 or NaNなどに応じて処理
-        def process_array(arr):
-            processed = []
-            for val in arr:
-                if np.isnan(val):
-                    processed.append(val)  # そのまま NaN として
-                elif isinstance(val, float):
-                    # float_grid 上のビンを探す
-                    bin_index = np.digitize(val, float_grid, right=False) - 1
-                    bin_index = max(0, min(bin_index, len(float_grid_labels) - 1))
-                    processed.append(float_grid_labels[bin_index])
-                else:
-                    # int, bool, などそのまま
-                    processed.append(val)
-            return tuple(processed)
+        arr1 = np.array(arr1).T
+        arr2 = np.array(arr2).T
 
-        outputs1_processed = [process_array(o) for o in outputs1]
-        outputs2_processed = [process_array(o) for o in outputs2]
+        # arr1, arr2 は形状 (SAMPLING_NUM, array_dim) や要素がリストの可能性あり
 
-        # カウントして共通キーのみ残す
+        def process_rows(arr, float_grid, float_grid_labels):
+            # NaNの判定関数を定義
+            def is_nan_safe(val):
+                return isinstance(val, float) and np.isnan(val)
+
+            # NaNマスク
+            nan_mask = np.vectorize(is_nan_safe)(arr)
+
+            # float型の値マスク
+            float_mask = ~nan_mask & np.vectorize(lambda x: isinstance(x, float))(arr)
+
+            # ビン分け
+            bins = np.digitize(arr[float_mask], float_grid, right=False) - 1
+            bins = np.clip(bins, 0, len(float_grid_labels) - 1)
+
+            # 結果の生成
+            result = np.empty(arr.shape, dtype=object)  # オブジェクト型で空配列を作成
+            result[nan_mask] = None  # NaNの場所をNoneに
+            result[float_mask] = np.array(float_grid_labels)[bins]  # ビン分けしたラベルを割り当て
+
+            # 他の値はそのままコピー
+            other_mask = ~(nan_mask | float_mask)
+            result[other_mask] = arr[other_mask]
+
+            # 行ごとにタプルに変換
+            return [tuple(row) for row in result]
+
+        # サンプリング結果すべてを処理
+        outputs1_processed = process_rows(arr1, float_grid, float_grid_labels)
+        outputs2_processed = process_rows(arr2, float_grid, float_grid_labels)
+
         counts_dict1 = Counter(outputs1_processed)
         counts_dict2 = Counter(outputs2_processed)
+
         common_keys = set(counts_dict1.keys()) & set(counts_dict2.keys())
 
         filtered_counts_dict1 = {k: counts_dict1[k] for k in common_keys}
@@ -297,4 +282,4 @@ def calc_pdf_by_sampling(var1, var2):
         return HistPmf(filtered_counts_dict1), HistPmf(filtered_counts_dict2)
 
     else:
-        raise ValueError("Output type is invalid or unsupported.")
+        raise ValueError("Unsupported output type in calc_pdf_by_sampling.")
