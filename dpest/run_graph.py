@@ -113,9 +113,6 @@ def _calc_pdf_by_sampling_rec_vec(v1, v2, n_samples):
     v1, v2 をまとめて n_samples 回サンプリングし、それぞれ形状 (n_samples, ...) の配列(またはリスト)を返す。
     再帰呼び出しをベクトル化した実装。
     """
-    #-------------------------------------------------------------
-    # 1) スカラーや文字列なら (n_samples,) にブロードキャストする
-    #-------------------------------------------------------------
     if isinstance(v1, (bool, np.bool_)):
         arr1 = np.full((n_samples,), v1, dtype=np.bool_)
         arr2 = np.full((n_samples,), v2, dtype=np.bool_)
@@ -130,9 +127,6 @@ def _calc_pdf_by_sampling_rec_vec(v1, v2, n_samples):
     if v1.sample is not None:
         return v1.sample, v2.sample
 
-    #-------------------------------------------------------------
-    # 2) Laplace, Exp などで「一度の呼び出しで n_samples 個」取得できる場合
-    #-------------------------------------------------------------
     if isinstance(v1, (Laplace, Exp)):
         # ここでは v1.sampling(n_samples) が shape = (n_samples,) を返すと仮定
         arr1 = v1.sampling(n_samples)
@@ -140,19 +134,12 @@ def _calc_pdf_by_sampling_rec_vec(v1, v2, n_samples):
         v1.sample, v2.sample = arr1, arr2
         return arr1, arr2
 
-    #-------------------------------------------------------------
-    # 3) Uni の場合: まとめて integers(n_samples)
-    #-------------------------------------------------------------
     if isinstance(v1, Uni):
         arr1 = prng.integers(v1.lower, v1.upper, size=n_samples)
         arr2 = prng.integers(v2.lower, v2.upper, size=n_samples)
         v1.sample, v2.sample = arr1, arr2
         return arr1, arr2
 
-    #-------------------------------------------------------------
-    # 4) 子をもつ場合（木構造・式構造の再帰）
-    #    各子からまとめてサンプリングした結果を func() にベクトル演算で適用
-    #-------------------------------------------------------------
     child_arrays1 = []
     child_arrays2 = []
     for c1, c2 in zip(v1.child, v2.child):
@@ -190,9 +177,6 @@ def calc_pdf_by_sampling(var1, var2):
     one_sample = test_arr1[0]
     output_type = type(one_sample)
 
-    #------------------------------------------------------
-    # case 1: スカラー (int, float) の場合
-    #------------------------------------------------------
     if isinstance(one_sample, (int, np.int64, float, np.float64)):
         # スカラーなので test_arr1, test_arr2 は shape = (test_samples,)
         min_vals, max_vals = np.min(test_arr1), np.max(test_arr1)
@@ -216,9 +200,6 @@ def calc_pdf_by_sampling(var1, var2):
         dict_hist2 = {edges2[i]: hist2[i] for i in range(len(hist2))}
         return HistPmf(dict_hist1), HistPmf(dict_hist2)
 
-    #------------------------------------------------------
-    # case 2: 配列(list, np.ndarray) の場合
-    #------------------------------------------------------
     elif isinstance(one_sample, (np.ndarray, list)):
         # test_arr1, test_arr2 は (test_samples, array_dim) という2次元以上の可能性もある
         # あるいは each element がリストという可能性もある。
