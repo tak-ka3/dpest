@@ -454,9 +454,9 @@ class ArgMaxArray(Pmf):
         """
         配列の最大値を取るインデックスを返す
         """
+        child_num = len(children)
         # 配列要素が全てLaplace分布の場合
         if [isinstance(child, Laplace) for child in children].count(True) == len(children):
-            child_num = len(children)
             pdfs = np.empty(child_num)
 
             # すべての vals をあらかじめ計算
@@ -476,8 +476,31 @@ class ArgMaxArray(Pmf):
                     pdf += tmp
                 pdfs[i] = pdf
             return RawPmf(dict(zip(np.arange(child_num), pdfs)))
-        
-        raise NotImplementedError("ArgMaxArrayの計算方法が未実装")
+        vals_num = len(children[0].val_to_prob)
+        vals_matrix = np.zeros((len(child_num), vals_num))
+        pdf_matrix = np.zeros((len(child_num), vals_num))
+        for i, child in enumerate(children):
+            vals_matrix[i] = np.array(list(child.val_to_prob.keys()))
+            pdf_matrix[i] = np.array(list(child.val_to_prob.values()))
+
+        result_pdfs = np.zeros(child_num)
+        # 各 v に対して他の子要素の PDF の積を計算
+        for i in range(child_num):
+            val = vals_matrix[i]
+            pdf = pdf_matrix[i]
+
+            # 他の子要素の PDF の積を事前計算
+            product_matrix = np.ones((len(val), child_num))
+            for j in range(child_num):
+                if i == j:
+                    continue
+                product_matrix[:, j] = np.array([
+                    np.prod(pdf_matrix[j][vals_matrix[j] <= v])
+                    for v in val
+                ])
+            # 最終的な PDF を計算
+            result_pdfs[i] = np.sum(pdf * np.prod(product_matrix, axis=1))
+        return RawPmf(dict(zip(np.arange(child_num), result_pdfs)))
     
     def func(self, args):
         """
