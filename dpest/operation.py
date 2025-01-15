@@ -7,7 +7,7 @@ from itertools import product, combinations
 from utils.pr_calc import nonuniform_convolution
 from . import Pmf
 from dpest.config import ConfigManager, prng
-from dpest.distrib import RawPmf
+from dpest.distrib import RawPmf, Laplace
 from typing import Union
 
 class Add(Pmf):
@@ -398,3 +398,112 @@ class ToArray(Pmf):
         子をまとめて配列として返す
         """
         return args
+
+class MaxArray(Pmf):
+    """
+    配列を引数に取り、最大値を返す
+    (Max関数は2つの確率変数を比較するため、配列を引数に取ることはできない)
+    """
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.name = "MaxArray"
+    
+    def calc_pdf(self, children):
+        """
+        配列の最大値を返す
+        """
+        # 配列要素が全てLaplace分布の場合
+        if [isinstance(child, Laplace) for child in children].count(True) == len(children):
+            child_num = len(children)
+            pdfs = np.empty(children[0].num)
+
+            # すべての vals をあらかじめ計算
+            vals = np.linspace(children[0].lower, children[0].upper, children[0].num)
+
+            # 各子要素の CDF の値を全体で保持して再利用
+            cdf_matrix = np.zeros((child_num, len(vals)))
+            for i, child in enumerate(children):
+                cdf_matrix[i] = np.array([child.calc_strict_cdf(val) for val in vals])
+
+            # 各子要素の PDF を計算
+            for idx, val in enumerate(vals):
+                pdf = 0
+                for i, child in enumerate(children): # i番目の要素が最大となる
+                    tmp = child.calc_strict_pdf(val)
+                    tmp *= np.prod(cdf_matrix[np.arange(child_num) != i, idx])
+                    pdf += tmp
+                pdfs[idx] = pdf
+            return RawPmf(dict(zip(vals, pdfs)))
+        raise NotImplementedError("MaxArrayの計算方法が未実装")
+    
+    def func(self, args):
+        """
+        配列の最大値を取る
+        """
+        return np.max(args, axis=0)
+
+class ArgMaxArray(Pmf):
+    """
+    配列を引数に取り、最大値を取るインデックスを返す
+    """
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.name = "ArgMaxArray"
+    
+    def calc_pdf(self, children):
+        """
+        配列の最大値を取るインデックスを返す
+        """
+        child_num = len(children)
+        # 配列要素が全てLaplace分布の場合
+        if [isinstance(child, Laplace) for child in children].count(True) == len(children):
+            pdfs = np.empty(child_num)
+
+            # すべての vals をあらかじめ計算
+            vals = np.linspace(children[0].lower, children[0].upper, children[0].num)
+
+            # 各子要素の CDF の値を全体で保持して再利用
+            cdf_matrix = np.zeros((child_num, len(vals)))
+            for i, child in enumerate(children):
+                cdf_matrix[i] = np.array([child.calc_strict_cdf(val) for val in vals])
+
+            # 各子要素の PDF を計算
+            for i, child in enumerate(children): # i番目の要素が最大となる
+                pdf = 0
+                for idx, val in enumerate(vals):
+                    tmp = child.calc_strict_pdf(val)
+                    tmp *= np.prod(cdf_matrix[np.arange(child_num) != i, idx])
+                    pdf += tmp
+                pdfs[i] = pdf
+            return RawPmf(dict(zip(np.arange(child_num), pdfs)))
+        vals_num = len(children[0].val_to_prob)
+        vals_matrix = np.zeros((len(child_num), vals_num))
+        pdf_matrix = np.zeros((len(child_num), vals_num))
+        for i, child in enumerate(children):
+            vals_matrix[i] = np.array(list(child.val_to_prob.keys()))
+            pdf_matrix[i] = np.array(list(child.val_to_prob.values()))
+
+        result_pdfs = np.zeros(child_num)
+        # 各 v に対して他の子要素の PDF の積を計算
+        for i in range(child_num):
+            val = vals_matrix[i]
+            pdf = pdf_matrix[i]
+
+            # 他の子要素の PDF の積を事前計算
+            product_matrix = np.ones((len(val), child_num))
+            for j in range(child_num):
+                if i == j:
+                    continue
+                product_matrix[:, j] = np.array([
+                    np.prod(pdf_matrix[j][vals_matrix[j] <= v])
+                    for v in val
+                ])
+            # 最終的な PDF を計算
+            result_pdfs[i] = np.sum(pdf * np.prod(product_matrix, axis=1))
+        return RawPmf(dict(zip(np.arange(child_num), result_pdfs)))
+    
+    def func(self, args):
+        """
+        配列の最大値を取る
+        """
+        return np.argmax(args, axis=0)

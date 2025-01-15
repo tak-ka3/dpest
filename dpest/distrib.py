@@ -34,6 +34,12 @@ class Laplace(Pmf):
         """
         return np.exp(-np.abs(vals - self.child[0]) / self.b) / (2 * self.b)
     
+    def calc_strict_cdf(self, vals: np.ndarray):
+        """
+        厳密な累積分布関数を計算する
+        """
+        return 0.5 + 0.5 * np.sign(vals - self.child[0]) * (1 - np.exp(-np.abs(vals - self.child[0]) / self.b))
+    
     def sampling(self, n_samples: int):
         return prng.laplace(self.child[0], self.b, n_samples)
         
