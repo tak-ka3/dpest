@@ -507,3 +507,45 @@ class ArgMaxArray(Pmf):
         配列の最大値を取る
         """
         return np.argmax(args, axis=0)
+    
+class CompConstArray(Pmf):
+    """
+    一つの確率変数を定数の配列と比較する
+    """
+    def __init__(self, var: Pmf, const_arr: np.ndarray):
+        assert isinstance(var, Pmf) & isinstance(const_arr, (np.ndarray, list))
+        if not isinstance(const_arr, np.ndarray):
+            const_arr = np.array(const_arr)
+        super().__init__()
+        self.child = [var, const_arr]
+        self.name = f"CompConstArray({var.name}, {const_arr})"
+        self.is_args_depend = var.is_args_depend
+        self.depend_vars = var.depend_vars
+    
+    def calc_pdf(self, children):
+        var, const_arr = children
+        unique_sorted_consts = np.unique(const_arr)
+        intervals = [(unique_sorted_consts[i], unique_sorted_consts[i+1]) for i in range(len(unique_sorted_consts) - 1)]
+        if isinstance(var, Laplace):
+            output_dict = {}
+            min_val = np.min(unique_sorted_consts)
+            max_val = np.max(unique_sorted_consts)
+            true_tuple = tuple([True] * len(const_arr))
+            false_tuple = tuple([False] * len(const_arr))
+            output_dict[true_tuple] = var.calc_strict_cdf(min_val)
+            output_dict[false_tuple] = 1 - var.calc_strict_cdf(max_val)
+            for interval in intervals:
+                pr = var.calc_strict_cdf(interval[1]) - var.calc_strict_cdf(interval[0])
+                med = np.median(interval)
+                bool_arr = tuple(const > med for const in const_arr)
+                output_dict[bool_arr] = pr
+            return RawPmf(output_dict)
+        else:
+            raise NotImplementedError("CompConstArrayの計算方法が未実装")
+    
+    def func(self, args):
+        """
+        配列の最大値を取る
+        """
+        var, const_arr = args
+        return np.array([np.sum([var[i] for i, v in enumerate(var) if v > const]) for const in const_arr])

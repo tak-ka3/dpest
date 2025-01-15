@@ -38,8 +38,11 @@ class Laplace(Pmf):
         """
         厳密な累積分布関数を計算する
         """
-        return 0.5 + 0.5 * np.sign(vals - self.child[0]) * (1 - np.exp(-np.abs(vals - self.child[0]) / self.b))
-    
+        if isinstance(vals, (np.ndarray, list, int, float)):
+            return 0.5 + 0.5 * np.sign(vals - self.child[0]) * (1 - np.exp(-np.abs(vals - self.child[0]) / self.b))
+        else:
+            raise ValueError("vals must be np.ndarray or scalar")
+
     def sampling(self, n_samples: int):
         return prng.laplace(self.child[0], self.b, n_samples)
         

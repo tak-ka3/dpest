@@ -23,6 +23,9 @@ def input_analysis_rec(var, size, adj):
         return size, adj
     if isinstance(var, InputScalar):
         return 1, ""
+    # TODO: 実装を直す
+    if isinstance(var, (np.ndarray, list)):
+        return input_analysis_rec(var[0], size, adj)
     for child in var.child:
         size, adj = input_analysis_rec(child, size, adj)
     return size, adj
@@ -76,6 +79,11 @@ def insert_input_rec(var1, var2, input_val_list1, input_val_list2):
                 var2.child[i].set_parent_array(input_val_list2[0])
                 updated_val2 = var2.child[i].get_array_item()
                 var2.child[i] = updated_val2
+    elif isinstance(var1, (list, np.ndarray)) and isinstance(var1[0], ArrayItem):
+        for i in range(len(var1)):
+            var1[i] = input_val_list1[var1[i].ind]
+            var2[i] = input_val_list2[var2[i].ind]
+        return var1, var2
     elif not isinstance(var1, Pmf):
         return var1, var2
     updated_child1, updated_child2 = [], []
@@ -88,7 +96,7 @@ def insert_input_rec(var1, var2, input_val_list1, input_val_list2):
     return var1, var2
 
 def resolve_dependency_rec(var1, var2): # var1とvar2はLaplaceの確率密度以外は同じことを前提とする
-    if isinstance(var1, (Laplace, Exp, RawPmf, HistPmf, Uni, np.float64, np.int64, int, str)):
+    if isinstance(var1, (Laplace, Exp, RawPmf, HistPmf, Uni, np.float64, np.int64, int, str, list, np.ndarray)):
         return var1, var2
     if var1.is_args_depend:
         # ここでサンプリングにより確率密度を計算する
@@ -105,6 +113,8 @@ def resolve_dependency_rec(var1, var2): # var1とvar2はLaplaceの確率密度�
 
 def calc_pdf_rec(var):
     if isinstance(var, (Laplace, Exp, Uni, RawPmf, HistPmf, np.float64, np.int64, int)):
+        return var
+    if isinstance(var, (np.ndarray, list)) and isinstance(var[0], (int, float)):
         return var
     output_var = var.calc_pdf([calc_pdf_rec(child) for child in var.child])
     return output_var

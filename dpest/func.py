@@ -63,6 +63,10 @@ def eps_est(Y: Pmf):
             val1, pdf1 = list(Y1.val_to_prob.keys()), list(Y1.val_to_prob.values())
             val2, pdf2 = list(Y2.val_to_prob.keys()), list(Y2.val_to_prob.values())
             if val1 != val2:
+                # 出力の値の型が離散値(bool値や整数値)の場合、出力の範囲が一致しないのは、εの値が無限大になることを意味する (e.g. SVT5)
+                if isinstance(val1[0], (tuple, list, np.ndarray)) and isinstance(val1[0][0], (bool, int)):
+                    return np.inf
+            if val1 != val2:
                 raise ValueError("Invalid value")
             eps = search_scalar_all(np.array(val1), np.array(pdf1), np.array(pdf2))
 

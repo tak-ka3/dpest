@@ -88,6 +88,9 @@ adj_noisy_max_lap := inf
 correct_eps_noisy_arg_max_lap_opt := 0.1
 adj_noisy_arg_max_lap := inf
 
+correct_eps_svt5_opt := inf
+adj_svt5 := inf
+
 # 各タスクの共通ルール
 %:
 	@echo "correct_eps=$(correct_eps_$@), adj=$(adj_$@)"
